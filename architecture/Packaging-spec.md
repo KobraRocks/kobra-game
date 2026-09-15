@@ -1154,7 +1154,7 @@ self-hosted, publisher-controlled update trustworthy:
 | 2 | **Confirm before downloading.** The user sees the current release, the available release, and the download size, and chooses. §3.4 requires the size to be known, so it MUST be shown | The user may be on a metered or small device |
 | 3 | **Progress is reported** in bytes and percent while downloading, and the UI states that canceling is safe | An update that appears hung gets killed mid-write |
 | 4 | **Cancellation is safe and complete.** A canceled download MUST leave the install untouched; a partial archive MUST NOT be left where the launcher could mistake it for a complete one | §9.5; the swap is crash-safe, so a cancel is equivalent to a crash before the swap begins |
-| 5 | **Failure is specific and actionable**, using the FS §16 error texts verbatim: E27 "The last update didn't finish.", E28 "The update file is damaged.", E29 "This update needs a newer launcher.", E30 "The update was rejected because it would modify your saves.", E32 "There isn't enough free space to install this update.", E34 "The update was cancelled.", E35 "The update changed since you confirmed it. Check for updates again.", E36 "The update could not be downloaded. The launcher may be offline." | FR-I18N ×support: the user must be able to act without a support ticket |
+| 5 | **Failure is specific and actionable**, using the FS §16 error texts verbatim: E27 "The last update didn't finish.", E28 "The update file is damaged.", E29 "This update needs a newer launcher.", E30 "The update was rejected because it would modify your saves.", E32 "There isn't enough free space to install this update.", E34 "The update was cancelled.", E35 "The update changed since you confirmed it. Check for updates again.", E36 "The update could not be downloaded. The launcher may be offline.", E37 "The update manifest was not readable." | FR-I18N ×support: the user must be able to act without a support ticket |
 | 6 | **Release notes are shown before the update is applied**, from `release.manifest.json`'s `notes` or `release_notes_url` | The user decides to update based on what changed |
 | 7 | **The result is stated plainly**: the new release id, and that saves were not touched | FR-UPD-7 is the product's central promise; say it |
 | 8 | **Rollback is offered after a failed start**, not buried. FR-UPD-8 retains `game.old` until the new release has started twice; while it is retained, the UI MUST offer "Revert to previous version" | FR-UPD-8's retention window is the only rollback the user has |
@@ -1166,6 +1166,8 @@ because they are invisible until a user is confused or a release misbehaves.
 ### 9.5 `launcher_min` and the Refusal Path
 
 A release whose `launcher_min` exceeds the user's launcher is **refused**, with the message *"This update needs a newer launcher."* and a download link (E29, FR-UPD-6). The user's current release keeps working. Packaging MUST therefore distribute launcher upgrades through the ZIP, not only through the update archive: a launcher that is too old by definition cannot update itself through the patch path alone.
+
+A `launcher_min` that cannot be read is refused as E37 (*"The update manifest was not readable."*), not E29, and the publisher MUST treat it as a build defect: the schema requires `^[0-9]+\.[0-9]+\.[0-9]+$`, and `kobra-pack` refuses to build a release whose `launcher_min` is not a bare three-component version, so a manifest in the wild that fails this check was not produced by a conforming pipeline (Updater spec §16.2, R16.5).
 
 ---
 
@@ -1530,7 +1532,7 @@ Build failure classes reuse the launcher's error discipline: a message a human c
 | FS §5.1 (distribution layout) | §3.1 |
 | FS §12.1–§12.4 (update machinery) | §9, §13 |
 | FS §13.2, §13.3 (launcher packaging, signing) | §10 |
-| FS §16 error texts (E27–E30, E32, E34–E36) in the update UI | §9.4 |
+| FS §16 error texts (E27–E30, E32, E34–E37) in the update UI | §9.4 |
 | FS §11.2 `game_version` in the save header | §4.4, §4.5 |
 | FR-AST-4 (advisory asset hashes) | §6.2, §6.5.2 |
 | FR-AST-9, FR-AST-10 (content-addressed paths, bundling) | §6.5.1, §6.5.3 |

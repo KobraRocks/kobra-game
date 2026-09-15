@@ -629,7 +629,7 @@ The order is normative. Each step's failure disposition is given.
 | 3 | Short-circuit if installed == target | Clear marker, record "already applied" |
 | 4 | `FetchManifest(manifest_url)` | Retry budget (R6.6) |
 | 5 | **Reconcile** marker vs. manifest (R9.3) | Clear marker, E35 |
-| 6 | `GuardApply(manifest, launcherVersion)` | Clear marker, E29 |
+| 6 | `GuardApply(manifest, launcherVersion)` | Clear marker, E29 / E37 |
 | 7 | **Disk-space preflight** (§10) | Retain marker, E32 |
 | 8 | `DownloadArchive` | Retain marker, E36 / retry |
 | 9 | `Verify(archivePath, manifest)` | Clear marker, E28 |
@@ -1109,15 +1109,30 @@ all of them because nothing is damaged.
 | **E34** | Apply cancelled by the user (§12) | "The update was cancelled." | Keep current release; no partial state |
 | **E35** | Manifest no longer matches the confirmed update (§9.2 step 5) | "The update changed since you confirmed it. Check for updates again." | Keep current release; clear marker |
 | **E36** | Download failed (network, status, truncation) | "The update could not be downloaded. The launcher may be offline." | Keep current release; retain marker with retry budget |
+| **E37** | Release manifest unreadable: fetch, decode, or field validation failed, including an unreadable `launcher_min` | "The update manifest was not readable." | Keep the current release runnable; clear marker; report to the publisher |
 
-**R16.1.** E32–E36 MUST be added to the FS §16 matrix, and E32, E34, E35 MUST be
-added to Packaging spec §9.4 requirement 5's list of texts used verbatim.
+**R16.1.** E32–E37 MUST be added to the FS §16 matrix, and E32, E34, E35, E37
+MUST be added to Packaging spec §9.4 requirement 5's list of texts used verbatim.
 
 **R16.2.** The words "damaged", "corrupt", and "invalid" MUST NOT be used for
-E32–E36. The user's install is fine; the update did not happen.
+E32–E37. The user's install is fine; the update did not happen.
 
 **R16.3.** E34 is informational and SHOULD be rendered as a neutral message, not
 an error.
+
+**R16.5.** E37 MUST NOT be reported as E29. An unreadable `launcher_min` is a
+fault in the publisher's document, so the E29 text ("This update needs a newer
+launcher.") would send the player looking for a launcher that does not exist and
+offer a remedy that cannot work. A manifest whose floor cannot be read is refused
+as unreadable (E37); E29 is reserved for a launcher that is older than a floor
+that was read. Both leave the current release runnable, so the difference is in
+the guidance, not the disposition.
+
+**R16.6.** E37 has no scenario in §18's E2E list yet. It is covered by the
+launcher's unit tests — the manifest rejection at fetch time, and the
+defence-in-depth refusal at the gate — so the rule is enforced, but a reader
+looking for E37 in the E2E matrix will not find it. Adding one is deferred rather
+than silently implied.
 
 ### 16.3 The `launcher_min`-With-No-Update Case
 
@@ -1126,7 +1141,8 @@ refused at step 6 with E29, and the marker is cleared. The current release keeps
 working and the launcher MUST NOT brick itself (Launcher spec §19.5). Packaging
 spec §9.5's requirement that launcher upgrades also travel through the ZIP is
 the user-facing mitigation and MUST be repeated in the E29 message's guidance
-link.
+link. A manifest whose `launcher_min` cannot be read is refused at the same step
+with E37 instead of E29, and with the same disposition (R16.5).
 
 ### 16.4 Diagnostics Events
 
@@ -1392,7 +1408,7 @@ MUST be applied together with §8.6 rule 5, or the two will contradict again.
 | FR-UPD-3 (refuse while running) | Existing `POST /api/update/apply` reachability; §17.5 |
 | FR-UPD-4 (crash-safe swap) | Existing `Swap`/`Recover`; §7.2; R18.9 |
 | FR-UPD-5 (zip-slip/bomb, declared size) | Existing `Verify`/`Extract`; R8.3, R8.17, R9.5 |
-| FR-UPD-6 (`launcher_min`) | R9.2, E29 |
+| FR-UPD-6 (`launcher_min`) | R9.2, E29, E37 |
 | FR-UPD-7 (`data/` untouched) | R9.5, R5.3, E30 |
 | FR-UPD-8 (retain `game.old` for two starts) | §15 |
 | FR-UPD-9 (rollback does not roll back saves) | R15.12 |
@@ -1491,7 +1507,7 @@ Apply(folder, sidecar, launcherVersion):
   if installed == target: clear, record done, return
   manifest ← FetchManifest(marker.manifest_url)      # retry budget §6.2
   reconcile(marker, manifest)                        # E35 on drift
-  GuardApply(manifest, launcherVersion)              # E29
+  GuardApply(manifest, launcherVersion)              # E29 / E37
   preflight(free space)                              # E32
   snapshot data/                                     # R9.5
   DownloadArchive(url, download.part, size)          # §8, resumable, cancellable

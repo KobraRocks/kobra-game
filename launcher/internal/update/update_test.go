@@ -950,32 +950,37 @@ func TestMeetsLauncherMin(t *testing.T) {
 		{"1.4.0+build", false},
 	}
 	for _, tc := range tests {
-		ok, msg := MeetsLauncherMin(m, tc.version)
-		if ok != tc.want {
-			t.Fatalf("MeetsLauncherMin(%q) = %v, want %v", tc.version, ok, tc.want)
+		err := MeetsLauncherMin(m, tc.version)
+		if (err == nil) != tc.want {
+			t.Fatalf("MeetsLauncherMin(%q) = %v, want met=%v", tc.version, err, tc.want)
 		}
-		if !ok && msg != LauncherTooOldMessage {
-			t.Fatalf("refusal message = %q, want the E29 wording", msg)
-		}
-		if ok && msg != "" {
-			t.Fatalf("refusal message = %q, want empty", msg)
+		if err != nil && messageOf(t, err) != LauncherTooOldMessage {
+			t.Fatalf("refusal message = %q, want the E29 wording", messageOf(t, err))
 		}
 	}
 
-	if ok, _ := MeetsLauncherMin(nil, "0.0.1"); !ok {
-		t.Fatal("a nil manifest should not gate the update")
+	if err := MeetsLauncherMin(nil, "0.0.1"); err != nil {
+		t.Fatalf("a nil manifest should not gate the update: %v", err)
 	}
 	if err := GuardApply(m, "1.0.0"); err == nil {
 		t.Fatal("GuardApply allowed a too-old launcher")
-	} else {
-		var ke *kobraerr.KobraError
-		if !errors.As(err, &ke) || ke.Msg != LauncherTooOldMessage {
-			t.Fatalf("GuardApply error = %v, want the E29 wording", err)
-		}
+	} else if messageOf(t, err) != LauncherTooOldMessage {
+		t.Fatalf("GuardApply error = %v, want the E29 wording", err)
 	}
 	if err := GuardApply(m, "1.4.0"); err != nil {
 		t.Fatalf("GuardApply refused a new-enough launcher: %v", err)
 	}
+}
+
+// messageOf returns the user-facing text of a kobraerr, for comparing against the
+// FS §16 wording.
+func messageOf(t *testing.T, err error) string {
+	t.Helper()
+	var ke *kobraerr.KobraError
+	if !errors.As(err, &ke) {
+		t.Fatalf("error %v is not a *kobraerr.KobraError", err)
+	}
+	return ke.Msg
 }
 
 // TestMalformedLauncherMinCannotDisableTheFloor pins the fail-closed rule for the
@@ -991,20 +996,64 @@ func TestMalformedLauncherMinCannotDisableTheFloor(t *testing.T) {
 	for _, bad := range []string{"garbage", "1.0.0-rc.1", "1.x.0", "v", "."} {
 		m := goodManifest(0)
 		m.LauncherMin = bad
-		ok, msg := MeetsLauncherMin(m, "99.0.0")
-		if ok {
+		err := MeetsLauncherMin(m, "99.0.0")
+		if err == nil {
 			t.Fatalf("launcher_min %q disabled the floor for launcher 99.0.0", bad)
 		}
-		if msg != LauncherTooOldMessage {
-			t.Fatalf("launcher_min %q refusal message = %q, want the E29 wording", bad, msg)
+		if got := messageOf(t, err); got != ManifestUnreadableMessage {
+			t.Fatalf("launcher_min %q refusal = %q, want the E37 wording", bad, got)
 		}
 	}
 
 	// The documented leniency has to survive: an absent floor is not a requirement.
 	m := goodManifest(0)
 	m.LauncherMin = ""
-	if ok, _ := MeetsLauncherMin(m, "0.0.1"); !ok {
-		t.Fatal("an empty launcher_min should not gate the update")
+	if err := MeetsLauncherMin(m, "0.0.1"); err != nil {
+		t.Fatalf("an empty launcher_min should not gate the update: %v", err)
+	}
+}
+
+// TestUnreadableFloorIsNotReportedAsTooOld pins Updater spec R16.5: the two floor
+// refusals must stay distinct, because their remedies differ.
+//
+// Reporting E29 for an unreadable launcher_min tells the player to go and find a
+// newer launcher — a remedy that cannot work, because no launcher version fixes a
+// publisher's malformed document. The fault is the manifest's, so the refusal is
+// E37. A launcher that is genuinely older than a readable floor is still E29, and
+// the diagnostics reason has to distinguish them even though both leave the
+// current release runnable.
+func TestUnreadableFloorIsNotReportedAsTooOld(t *testing.T) {
+	unreadable := goodManifest(0)
+	unreadable.LauncherMin = "1.0.0-rc.1"
+	tooOld := goodManifest(0)
+	tooOld.LauncherMin = "9.9.9"
+
+	// An arbitrarily new launcher cannot satisfy a floor that cannot be read.
+	err := MeetsLauncherMin(unreadable, "99.0.0")
+	if err == nil {
+		t.Fatal("an unreadable floor was treated as satisfied")
+	}
+	if got := messageOf(t, err); got == LauncherTooOldMessage {
+		t.Fatal("an unreadable floor was reported as E29 'needs a newer launcher'")
+	} else if got != ManifestUnreadableMessage {
+		t.Fatalf("unreadable floor reported %q, want the E37 wording", got)
+	}
+
+	err = MeetsLauncherMin(tooOld, "1.0.0")
+	if err == nil {
+		t.Fatal("a too-old launcher satisfied a readable floor")
+	}
+	if got := messageOf(t, err); got != LauncherTooOldMessage {
+		t.Fatalf("too-old launcher reported %q, want the E29 wording", got)
+	}
+
+	// The diagnostic reason distinguishes a publisher's bad document from a
+	// player's stale launcher, so a log reader is not misled either.
+	if _, reason := launcherMinRefusal(unreadable, "99.0.0"); reason != "launcher_min_unreadable" {
+		t.Fatalf("unreadable floor reason = %q, want launcher_min_unreadable", reason)
+	}
+	if _, reason := launcherMinRefusal(tooOld, "1.0.0"); reason != "launcher_min" {
+		t.Fatalf("too-old reason = %q, want launcher_min", reason)
 	}
 }
 

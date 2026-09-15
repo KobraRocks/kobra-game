@@ -1,0 +1,21 @@
+{
+  "schema": "kobra.engine-manifest/1",
+  "release": "2026.10.1",
+  "engine_version": "0.1.0",
+  "wasm": "engine/game.wasm",
+  "glue": "engine/game.js",
+  "save_version": 1,
+  "required_features": [
+    "wasm"
+  ],
+  "min_browser": {
+    "chrome": 105,
+    "edge": 105,
+    "opera": 91
+  },
+  "memory": {
+    "initial_bytes": 65536,
+    "maximum_bytes": 268435456
+  },
+  "notes": "Second release: release id advanced, engine_version and save_version deliberately unchanged, so the update path exercises a game-only change that does NOT raise save_version."
+}

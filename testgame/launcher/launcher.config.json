@@ -1,0 +1,29 @@
+{
+  "schema": "kobra.launcher-config/1",
+  "game_id": "com.kobra.pkgtest",
+  "game_name": "Kobra Package Test",
+  "release": "2026.09.1",
+  "port": {
+    "base": 18900,
+    "span": 50,
+    "require_confirmation": false
+  },
+  "server": {
+    "idle_timeout_seconds": 90
+  },
+  "browser_preference": [
+    "chromium",
+    "chrome",
+    "brave",
+    "firefox"
+  ],
+  "mime_types": {
+    ".obj": "text/plain"
+  },
+  "locales": [
+    "en"
+  ],
+  "update": {
+    "channel": "manual"
+  }
+}

@@ -1,0 +1,25 @@
+# Second release fixture.
+#
+# testgame/game/ is the 2026.09.1 development tree. This directory does not
+# duplicate it: it carries only what changed, and the reference packager in
+# tools/package.py copies game/ and then applies overlay/ on top. That mirrors
+# how a real repository would tag a release and keeps the fixture small enough
+# to read.
+#
+# The overlay deliberately touches only files under game/. It still ships a
+# launcher/ entry, because Packaging spec §4.6 requires
+# launcher.config.json's `release` to equal the package's release id, so every
+# release that advances `release` also changes launcher/launcher.config.json.
+# That makes scope = "game-only" inconsistent with §4.6 and the fixture uses
+# "full". See releases/README.md.
+
+[release]
+release          = "2026.10.1"
+game_version     = "1.1.0"
+previous_release = "2026.09.1"
+channel          = "stable"
+scope            = "full"
+
+[notes]
+summary = "Adds a second level and a save-format probe, and changes no launcher file."
+url     = "https://example.invalid/pkgtest/notes/2026.10.1"

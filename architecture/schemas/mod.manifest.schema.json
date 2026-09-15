@@ -1,0 +1,169 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kobra.games/schemas/mod.manifest.schema.json",
+  "title": "Kobra Mod Manifest",
+  "description": "Companion to user/mods/<mod-id>/mod.manifest.json (spec Sections 9.5, FR-AST-8). Mods are trusted user data: this manifest declares what a mod replaces and records the base release it was authored against. It is not a security boundary.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema",
+    "id",
+    "name",
+    "version",
+    "assets"
+  ],
+  "properties": {
+    "schema": {
+      "const": "kobra.mod-manifest/1"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$",
+      "description": "Mod identifier. MUST equal the containing directory name so overlay resolution is deterministic. Lowercase slug, 1-64 characters."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+([-+][A-Za-z0-9.-]+)?$"
+    },
+    "author": {
+      "type": "string",
+      "maxLength": 120
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "license": {
+      "type": "string",
+      "maxLength": 120
+    },
+    "homepage": {
+      "type": "string",
+      "format": "uri"
+    },
+    "priority": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000,
+      "default": 100,
+      "description": "Overlay priority. Higher wins. The base game is priority 0, so any enabled mod shadows base assets (FR-AST-12)."
+    },
+    "base_release": {
+      "type": "string",
+      "pattern": "^[0-9]{4}\\.[0-9]{2}\\.[0-9]+$",
+      "description": "Release the mod was authored against. A mismatch produces a warning, never a failure."
+    },
+    "assets": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Asset paths the mod provides. Resolution order is user/mods/<id>/assets/<path>, then game/assets/<path>.",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "path"
+        ],
+        "properties": {
+          "path": {
+            "allOf": [
+              {
+                "$ref": "#/$defs/relPath"
+              },
+              {
+                "not": {
+                  "pattern": "^engine/"
+                },
+                "description": "A mod provides assets only; it MUST NOT shadow engine/ (FR-AST-12)."
+              }
+            ],
+            "description": "Asset path relative to the mod's assets/ directory."
+          },
+          "type": {
+            "enum": [
+              "texture",
+              "audio",
+              "model",
+              "data",
+              "shader",
+              "video",
+              "font",
+              "locale",
+              "other"
+            ]
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "replaces": {
+            "type": "string",
+            "description": "Base asset path this file is intended to shadow. Informational, for diagnostics and for the conflict report."
+          },
+          "expected_base_hash": {
+            "description": "Hash of the base asset this mod was authored against, or the literal 'any' to declare that any base version is acceptable. The engine honours the mod's assertion over the base manifest and warns on a mismatch (FR-AST-8).",
+            "anyOf": [
+              {
+                "const": "any"
+              },
+              {
+                "type": "string",
+                "pattern": "^sha256:[0-9a-f]{64}$"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "requires": {
+      "type": "array",
+      "uniqueItems": true,
+      "description": "Mod ids that must also be enabled. A missing dependency disables this mod with an explanatory message rather than failing the boot.",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9._-]{1,63}$"
+      }
+    },
+    "conflicts": {
+      "type": "array",
+      "uniqueItems": true,
+      "description": "Mod ids known to conflict. Enabling both is allowed but reported.",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9._-]{1,63}$"
+      }
+    },
+    "load_order_hint": {
+      "enum": [
+        "before",
+        "after",
+        "any"
+      ],
+      "default": "any",
+      "description": "Hint relative to other mods of equal priority; ties are broken by id, ascending, so ordering is always deterministic."
+    },
+    "requires_engine": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "Minimum engine version. A mod requiring a newer engine is disabled with a message, not loaded speculatively."
+    }
+  },
+  "$defs": {
+    "relPath": {
+      "type": "string",
+      "pattern": "^(?!\\.\\.?(/|$))[A-Za-z0-9._-]+(/(?!\\.\\.?(/|$))[A-Za-z0-9._-]+)*$",
+      "description": "POSIX-style relative path. No leading slash, no backslash, no empty or dot segments, ASCII-only by policy (FR-I18N-7). The negative lookahead rejects '.' and '..' segments so a crafted manifest cannot escape its root."
+    },
+    "hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  }
+}

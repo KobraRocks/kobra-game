@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kobra.games/schemas/save.schema.json",
+  "title": "Kobra Save File",
+  "description": "Companion to <game folder>/data/saves/<slot>.json (spec Section 11.2). Written only by the launcher's data API via temp -> fsync -> verify -> rotate -> rename (FR-SAVE-5); the browser never writes this file. The checksum covers the canonicalised payload only, so header fields such as 'modified' and 'revision' never invalidate an unchanged body.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema",
+    "save_version",
+    "game_version",
+    "created",
+    "modified",
+    "payload"
+  ],
+  "properties": {
+    "schema": {
+      "const": "kobra.save/1",
+      "description": "An unknown schema means the file was written by a different product line; refuse to load (Section 12.3)."
+    },
+    "save_version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Save format version. Greater than the engine's value means refuse to load and never write (FR-SAVE-12)."
+    },
+    "game_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "release": {
+      "type": "string",
+      "pattern": "^[0-9]{4}\\.[0-9]{2}\\.[0-9]+$"
+    },
+    "created": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 UTC. Save timestamps are never locale-formatted (FR-I18N-3)."
+    },
+    "modified": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 UTC. Used for cross-tab conflict detection (FR-SAVE-9); not derived from filesystem mtime, which is coarse on FAT32."
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Server-owned monotonic revision (FR-SAVE-9). The launcher sets this on every write; a client MUST supply the previous value as if_revision so a concurrent write is rejected with 409 rather than silently overwriting. This replaces v2.0's mtime comparison, which FAT32's 2-second granularity made unreliable."
+    },
+    "playtime_seconds": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "checksum": {
+      "$ref": "#/$defs/hash",
+      "description": "SHA-256 over the canonicalised payload. Verified on load; a mismatch routes to the .bak recovery chain (Section 11.6)."
+    },
+    "compression": {
+      "enum": [
+        "none",
+        "deflate",
+        "zstd"
+      ],
+      "default": "none",
+      "description": "Compression applied to the payload. Only meaningful when payload_ref is used."
+    },
+    "payload_ref": {
+      "type": "string",
+      "pattern": "^(?!\\.\\.?(/|$))[A-Za-z0-9._-]+(\\.bin)$",
+      "description": "Sidecar file holding the payload when it exceeds the 1 MiB JSON threshold (FR-SAVE-2). A bare filename relative to saves/; MUST NOT contain a path separator or escape the directory."
+    },
+    "payload": {
+      "description": "Engine-defined state. The engine MUST preserve unknown fields on rewrite so an older build can load and re-save a newer save without silent data loss (FR-SAVE-4). When payload_ref is set this object holds only the small header portion of the state.",
+      "type": "object"
+    },
+    "meta": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Advisory display metadata. Losing it MUST never mean losing the save; index.json is rebuildable from these fields.",
+      "properties": {
+        "slot": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "title": {
+          "type": "string"
+        },
+        "thumbnail": {
+          "type": "string"
+        },
+        "difficulty": {
+          "type": "string"
+        },
+        "locale_independent_ids": {
+          "const": true,
+          "description": "Assertion that the payload uses stable numeric IDs rather than display names (FR-I18N-5)."
+        }
+      }
+    },
+    "migrations_applied": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[0-9]+->[0-9]+$"
+      },
+      "description": "Migration steps already applied to this save, for support diagnostics."
+    }
+  },
+  "$defs": {
+    "hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  },
+  "allOf": [
+    {
+      "description": "A payload_ref must not be combined with a non-none compression of an inline payload, and must declare its compression.",
+      "if": {
+        "required": [
+          "payload_ref"
+        ]
+      },
+      "then": {
+        "required": [
+          "compression"
+        ],
+        "properties": {
+          "compression": {
+            "enum": [
+              "deflate",
+              "zstd",
+              "none"
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

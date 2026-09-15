@@ -1,0 +1,26 @@
+{
+  "schema": "kobra.fixture-levels/1",
+  "levels": [
+    {
+      "id": "sandbox",
+      "name": "Sandbox",
+      "grid": [8, 8],
+      "spawn": [1, 1],
+      "notes": "Default level. The shell renders this as a checkerboard using textures/checker.png."
+    },
+    {
+      "id": "roundtrip",
+      "name": "Save Round-Trip",
+      "grid": [16, 16],
+      "spawn": [4, 4],
+      "notes": "Used by testgame/run.sh to prove a save survives an atomic write and a re-read."
+    },
+    {
+      "id": "second_release",
+      "name": "Second Release Only",
+      "grid": [32, 32],
+      "spawn": [8, 8],
+      "notes": "Added in 2026.10.1. Its presence in game/assets/data/levels.json is how the update path proves the swap replaced game/ wholesale."
+    }
+  ]
+}

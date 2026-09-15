@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kobra Package Test</title>
+<!--
+  The Kobra package test game.
+
+  Served only over the launcher's loopback origin. `file://` is never used
+  (constraint C1): WebAssembly and module scripts are blocked there by the
+  same-origin policy, which is the whole reason the launcher runs a server.
+
+  This document contains no inline <script> and no style="" attribute. The
+  launcher sends `default-src 'self'; script-src 'self' 'wasm-unsafe-eval';
+  style-src 'self'`, so inline script and inline style are both blocked. Every
+  handler is attached from shell.js and every rule lives in the stylesheet,
+  which is what makes this page a real test of the policy.
+
+  The stylesheet is at /assets/shell.css, not /shell.css. The launcher serves
+  exactly two files from the game root (index.html and shell.js); every other
+  game file must sit under engine/, assets/ or locales/ or it 404s.
+-->
+<link rel="stylesheet" href="/assets/shell.css">
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>Kobra Package Test</h1>
+    <p class="subtitle">Fixture game &middot; <code id="game-id">&mdash;</code> &middot; <code id="origin">&mdash;</code></p>
+  </header>
+
+  <p id="banner" class="banner" hidden></p>
+
+  <div class="columns">
+    <section class="panel stage">
+      <h2>Engine</h2>
+      <canvas id="frame" width="32" height="32" aria-label="Engine output"></canvas>
+      <p class="subtitle" id="engine-status">Engine not started.</p>
+    </section>
+
+    <section class="panel">
+      <h2>Save</h2>
+      <div class="controls">
+        <button id="btn-new" type="button">New game</button>
+        <button id="btn-save" type="button">Save</button>
+        <button id="btn-load" type="button">Load</button>
+      </div>
+      <p class="subtitle" id="save-status">No saves yet.</p>
+      <label class="field">
+        <span>Slot</span>
+        <input id="slot" type="text" value="slot1" autocomplete="off" spellcheck="false">
+      </label>
+    </section>
+  </div>
+
+  <div class="columns">
+    <section class="panel">
+      <h2>Settings</h2>
+      <label class="field">
+        <span>Volume</span>
+        <input id="volume" type="range" min="0" max="100" step="1" value="80">
+        <output id="volume-out">0.80</output>
+      </label>
+      <div class="controls">
+        <button id="btn-apply" type="button">Apply settings</button>
+      </div>
+      <p class="subtitle" id="settings-status">Not loaded.</p>
+    </section>
+
+    <section class="panel">
+      <h2>Diagnostics</h2>
+      <dl class="facts">
+        <dt>Launcher</dt><dd id="fact-launcher">&mdash;</dd>
+        <dt>Release</dt><dd id="fact-release">&mdash;</dd>
+        <dt>Engine</dt><dd id="fact-engine">&mdash;</dd>
+        <dt>Save format</dt><dd id="fact-save-version">&mdash;</dd>
+        <dt>Data writable</dt><dd id="fact-writable">&mdash;</dd>
+        <dt>Data dir</dt><dd id="fact-datadir">&mdash;</dd>
+        <dt>Session</dt><dd id="fact-session">&mdash;</dd>
+      </dl>
+    </section>
+  </div>
+
+  <section class="panel">
+    <h2>Log</h2>
+    <ul class="log" id="log"></ul>
+  </section>
+</div>
+
+<script type="module" src="/shell.js"></script>
+</body>
+</html>

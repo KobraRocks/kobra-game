@@ -1,0 +1,157 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kobra.games/schemas/asset.manifest.schema.json",
+  "title": "Kobra Asset Manifest",
+  "description": "Companion to game/assets/asset.manifest.json. The single source of truth for asset discovery; the engine MUST NOT hardcode asset paths (spec Sections 9.2, Appendix B.2). Hashes are ADVISORY for assets (FR-AST-4); mods may override them (FR-AST-8).",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema",
+    "release",
+    "assets"
+  ],
+  "properties": {
+    "schema": {
+      "const": "kobra.asset-manifest/1"
+    },
+    "release": {
+      "type": "string",
+      "pattern": "^[0-9]{4}\\.[0-9]{2}\\.[0-9]+$"
+    },
+    "generated": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 UTC build timestamp."
+    },
+    "content_addressed": {
+      "type": "boolean",
+      "default": false,
+      "description": "When true, asset paths embed a hash prefix and are served immutable (FR-AST-9)."
+    },
+    "bundles": {
+      "type": "array",
+      "description": "Packed small-file bundles (FR-AST-10). Assets at or under the bundling threshold appear in a bundle instead of as individual files.",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "path",
+          "hash",
+          "entries"
+        ],
+        "properties": {
+          "path": {
+            "$ref": "#/$defs/relPath"
+          },
+          "hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "entries": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "format": {
+            "enum": [
+              "pak",
+              "tar",
+              "zip"
+            ]
+          }
+        }
+      }
+    },
+    "assets": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/asset"
+      }
+    }
+  },
+  "$defs": {
+    "hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "asset": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "type",
+        "size"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/relPath"
+        },
+        "type": {
+          "enum": [
+            "texture",
+            "audio",
+            "model",
+            "data",
+            "shader",
+            "video",
+            "font",
+            "locale",
+            "other"
+          ]
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "hash": {
+          "$ref": "#/$defs/hash",
+          "description": "ADVISORY (FR-AST-4). A mismatch logs a warning and the file the user supplied is used; the game MUST NOT refuse to start or degrade gameplay because of it."
+        },
+        "mutable": {
+          "type": "boolean",
+          "default": true,
+          "description": "False marks an asset the engine requires structurally. Use sparingly: every mutable:false asset is a mod that cannot work (FR-AST-7)."
+        },
+        "cache": {
+          "enum": [
+            "immutable",
+            "revalidate",
+            "no-store"
+          ],
+          "default": "revalidate",
+          "description": "Cache-Control directive the server applies (FR-SRV-15). immutable requires a content-addressed or release-prefixed path."
+        },
+        "bundle": {
+          "type": "string",
+          "description": "Path of the bundle containing this asset, when bundled."
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "length": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "preload": {
+          "type": "boolean",
+          "default": false,
+          "description": "Hint that the asset is needed for the first frame and should be fetched during splash."
+        },
+        "range_requests": {
+          "type": "boolean",
+          "default": false,
+          "description": "True for audio/video that must support seeking (FR-SRV-14, Section 17.2)."
+        }
+      }
+    },
+    "relPath": {
+      "type": "string",
+      "pattern": "^(?!\\.\\.?(/|$))[A-Za-z0-9._-]+(/(?!\\.\\.?(/|$))[A-Za-z0-9._-]+)*$",
+      "description": "POSIX-style relative path. No leading slash, no backslash, no empty or dot segments, ASCII-only by policy (FR-I18N-7). The negative lookahead rejects '.' and '..' segments so a crafted manifest cannot escape its root."
+    }
+  }
+}

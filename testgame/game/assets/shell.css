@@ -1,0 +1,167 @@
+/* Stylesheet for the Kobra package test game.
+ *
+ * This file lives under assets/ rather than at the game root, and that is not
+ * cosmetic. The launcher registers an explicit route allowlist
+ * (internal/static/static.go):
+ *
+ *     /            and /index.html -> game/index.html
+ *     /shell.js                    -> game/shell.js
+ *     /engine/...                  -> game/engine/...
+ *     /assets/...                  -> game/assets/...
+ *     /locales/...                 -> game/locales/...
+ *
+ * Anything else under game/ is a 404. A stylesheet at game/shell.css would be
+ * shipped in the package, listed in the file index, and silently unreachable —
+ * which is why tools/package.py now fails the build on an unservable path.
+ *
+ * It is also a separate file on purpose: the launcher sends `style-src 'self'`,
+ * so an inline <style> block or a style="" attribute is blocked by the CSP.
+ *
+ * Caching note: /assets/... without a content-addressed prefix is served
+ * `public, max-age=3600` (§6.5.2), so a stylesheet change may take up to an
+ * hour to reach a returning player. Content addressing it would fix that.
+ */
+
+:root {
+  --bg: #16181d;
+  --panel: #1e2128;
+  --panel-2: #262a33;
+  --line: #333845;
+  --fg: #e6e8ee;
+  --muted: #9aa1b1;
+  --accent: #63b3ed;
+  --ok: #68d391;
+  --warn: #f6ad55;
+  --err: #fc8181;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+#app {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 24px 20px 48px;
+}
+
+header { margin-bottom: 20px; }
+
+h1 {
+  margin: 0 0 4px;
+  font-size: 22px;
+  letter-spacing: 0.2px;
+}
+
+h2 {
+  margin: 0 0 10px;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.subtitle { margin: 0; color: var(--muted); }
+.subtitle code { font-family: var(--mono); color: var(--fg); }
+
+.banner {
+  margin: 0 0 16px;
+  padding: 10px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--fg);
+}
+
+.banner[data-kind="warn"] { border-color: var(--warn); color: var(--warn); }
+.banner[data-kind="error"] { border-color: var(--err); color: var(--err); }
+.banner[data-kind="ok"] { border-color: var(--ok); color: var(--ok); }
+
+.columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 720px) {
+  .columns { grid-template-columns: 1fr; }
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.panel.stage { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+
+canvas {
+  image-rendering: pixelated;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #0f1115;
+  width: 256px;
+  height: 256px;
+}
+
+button {
+  font: inherit;
+  color: var(--fg);
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 7px 13px;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) { border-color: var(--accent); }
+button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.controls { display: flex; flex-wrap: wrap; gap: 8px; }
+
+label.field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+label.field span { min-width: 70px; color: var(--muted); }
+
+input[type="range"] { flex: 1; }
+
+dl.facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 14px;
+  margin: 0;
+}
+
+dl.facts dt { color: var(--muted); }
+dl.facts dd { margin: 0; font-family: var(--mono); word-break: break-all; }
+
+.log {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 200px;
+  overflow-y: auto;
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.log li { padding: 3px 0; border-bottom: 1px solid var(--line); color: var(--muted); }
+.log li:last-child { border-bottom: none; }
+.log li[data-level="ok"] { color: var(--ok); }
+.log li[data-level="warn"] { color: var(--warn); }
+.log li[data-level="error"] { color: var(--err); }

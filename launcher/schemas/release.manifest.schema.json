@@ -1,0 +1,290 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kobra.games/schemas/release.manifest.schema.json",
+  "title": "Kobra Release Manifest",
+  "description": "Companion to game/release.manifest.json (spec Section 12, Appendix B). Identifies a release, indexes its payload for update verification, and declares the save migration chain. The launcher verifies this manifest's hashes before applying an update: verification is mandatory for the release payload, unlike the advisory per-asset hashes (FR-AST-6).",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema",
+    "release",
+    "launcher_min",
+    "engine_version",
+    "save_version",
+    "files",
+    "total_size"
+  ],
+  "properties": {
+    "schema": {
+      "const": "kobra.release-manifest/1"
+    },
+    "release": {
+      "type": "string",
+      "pattern": "^[0-9]{4}\\.[0-9]{2}\\.[0-9]+$",
+      "description": "Date-version release identifier, e.g. 2026.09.1. Ordering is lexicographic on the zero-padded components."
+    },
+    "previous_release": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9]{4}\\.[0-9]{2}\\.[0-9]+$",
+      "description": "Release this one supersedes; null for a first release. Used to select the patch archive."
+    },
+    "published": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "launcher_min": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "FR-UPD-6. Minimum launcher version. A release MUST refuse to run under an older launcher and instruct the user to replace it."
+    },
+    "engine_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "save_version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Save format version produced by this release. MUST match engine.manifest.json save_version or the release build fails (FR-SCH-5)."
+    },
+    "game_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "The game's own content version. Independent of engine_version and release (Packaging spec §4.4). Stamped into every save header. Required by the packaging pipeline; optional here only so that a document written before the field existed still validates."
+    },
+    "channel": {
+      "enum": [
+        "stable",
+        "beta",
+        "rc"
+      ],
+      "default": "stable"
+    },
+    "scope": {
+      "enum": [
+        "full",
+        "game-only",
+        "patch"
+      ],
+      "default": "full",
+      "description": "full: whole game folder. game-only: game/ subtree for manual over-extraction over an existing install. patch: delta from previous_release."
+    },
+    "total_size": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "FR-UPD-5. Declared total extracted size: the sum of every files[].size. The launcher checks the archive against this before extraction begins (zip-bomb defence). NOT the compressed archive size — that is archive.size."
+    },
+    "archive": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "hash",
+        "size"
+      ],
+      "description": "The update archive this manifest describes (Packaging spec §8.2.2). Required on a published manifest and enforced by the launcher: internal/update/verify.go refuses a manifest that declares neither archive.hash nor the flat archive_sha256 alias, rather than silently downgrading to per-file verification (§8.2.3.3). The manifest is never a member of the archive it names, which is what makes this hash well defined.",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Base filename as published."
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "description": "Absolute, or relative to the manifest's own location."
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Exact compressed archive size in bytes. Not total_size, which is the extracted size."
+        },
+        "hash": {
+          "$ref": "#/$defs/hash"
+        },
+        "format": {
+          "enum": [
+            "tar.zst"
+          ]
+        }
+      }
+    },
+    "files": {
+      "type": "array",
+      "minItems": 1,
+      "description": "File index. Hashes here are MANDATORY to verify during update, unlike asset manifest hashes.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "size",
+          "hash"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "pattern": "^(game|launcher)/(?!\\.\\.?(/|$))[A-Za-z0-9._-]+(/(?!\\.\\.?(/|$))[A-Za-z0-9._-]+)*$",
+            "description": "Relative path. MUST be under game/ or launcher/: a release never contains and never writes data/, which holds the user's saves, config, and mods (FR-UPD-7). The launcher verifies after extraction that nothing touched data/."
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "mode": {
+            "type": "string",
+            "pattern": "^[0-7]{3,4}$",
+            "description": "POSIX mode, used to restore the executable bit on launcher files that pass through archives which do not preserve it (Section 13.3)."
+          }
+        }
+      }
+    },
+    "migrations": {
+      "type": "array",
+      "description": "Ordered save migration chain (FR-SAVE-12). Each step MUST advance the version (from < to). Full chain contiguity from the oldest supported save_version to save_version cannot be expressed in JSON Schema and MUST be checked by the semantic validator in the release build (FR-SCH-6); a release whose chain has a gap MUST fail the build.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "from",
+          "to",
+          "fn"
+        ],
+        "properties": {
+          "from": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "to": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "fn": {
+            "type": "string",
+            "pattern": "^[A-Za-z_][A-Za-z0-9_.]*$",
+            "description": "Exported migration function name. Runs on a copy of the payload; the original is preserved as prev-<from> before the first post-migration write (FR-SAVE-13)."
+          },
+          "reversible": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      }
+    },
+    "schema_migrations": {
+      "type": "array",
+      "description": "FR-SCH-4. One-way manifest schema upgrades, e.g. asset-manifest/1 -> /2, with the pre-migration file preserved.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "manifest",
+          "from",
+          "to"
+        ],
+        "properties": {
+          "manifest": {
+            "enum": [
+              "asset-manifest",
+              "engine-manifest",
+              "launcher-config",
+              "mod-manifest"
+            ]
+          },
+          "from": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "to": {
+            "type": "integer",
+            "minimum": 2
+          }
+        }
+      }
+    },
+    "min_browser": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "chrome": {
+          "type": "integer",
+          "minimum": 105
+        },
+        "edge": {
+          "type": "integer",
+          "minimum": 105
+        },
+        "opera": {
+          "type": "integer",
+          "minimum": 91
+        }
+      }
+    },
+    "signatures": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "FR-LNCH-3. Optional detached signatures over the manifest itself, so a user who distrusts the transport can verify the release.",
+      "properties": {
+        "gpg": {
+          "type": "string",
+          "description": "Armored detached signature."
+        },
+        "gpg_key_fingerprint": {
+          "type": "string",
+          "pattern": "^[0-9A-F]{40}$"
+        },
+        "sigstore_bundle": {
+          "type": "string"
+        }
+      }
+    },
+    "notes": {
+      "type": "string",
+      "maxLength": 8000
+    },
+    "release_notes_url": {
+      "type": "string",
+      "format": "uri"
+    }
+  },
+  "allOf": [
+    {
+      "description": "A patch release must name its previous release, and its migration chain (if any) must start at save_version.",
+      "if": {
+        "properties": {
+          "scope": {
+            "const": "patch"
+          }
+        },
+        "required": [
+          "scope"
+        ]
+      },
+      "then": {
+        "required": [
+          "previous_release"
+        ],
+        "properties": {
+          "previous_release": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "Lowercase hex SHA-256 with an algorithm prefix, matching the save, engine and asset schemas. The prefix is required: internal/update/parseHash rejects a bare 64-character hex string, so a publisher who emits unprefixed hex produces a manifest the launcher refuses even though the bytes are correct (Packaging spec §8.2.2)."
+    },
+    "relPath": {
+      "type": "string",
+      "pattern": "^(?!\\.\\.?(/|$))[A-Za-z0-9._-]+(/(?!\\.\\.?(/|$))[A-Za-z0-9._-]+)*$",
+      "description": "POSIX-style relative path. No leading slash, no backslash, no empty or dot segments, ASCII-only by policy (FR-I18N-7). The negative lookahead rejects '.' and '..' segments so a crafted manifest cannot escape its root."
+    }
+  }
+}

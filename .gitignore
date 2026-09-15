@@ -1,0 +1,26 @@
+# Go build and module caches redirected into the workspace because the system
+# caches are read-only in this sandbox (see launcher/README.md).
+.gocache/
+
+# Build outputs
+launcher/launcher
+launcher/dist/
+launcher/dist-SHA256SUMS
+
+# Development shim created by `make run-dev` (see launcher/README.md)
+.dev/
+
+# End-to-end test scratch space (the harness in .e2e/run.sh recreates it)
+.e2e/state/
+.e2e/TestGame/
+.e2e/cookies.txt
+.e2e/launcher.out
+
+# Test-game fixture build output and its machine-local state
+# (`make package` / `make dev` regenerate these; see testgame/README.md).
+testgame/dist/
+testgame/.state/
+testgame/.kobra-dev/
+
+# The publisher toolchain binary
+packaging/kobra-pack

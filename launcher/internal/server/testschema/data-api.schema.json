@@ -1,0 +1,222 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kobra.games/schemas/data-api.schema.json",
+  "title": "Kobra Data API Envelopes",
+  "description": "Normative request and response shapes for the launcher's save/config/mod API (spec Section 8, Appendix C). The browser never names a filesystem path: every target is a validated identifier, and the server builds the path (FR-API-4). Error responses MUST NOT leak absolute paths.",
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$",
+      "description": "A slot, config key prefix, or mod id. MUST be lowercase ASCII and MUST NOT contain a path separator, a dot segment, a drive letter, or a UNC prefix (FR-API-4). The server rejects anything else with 400 bad_identifier."
+    },
+    "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "timestamp": { "type": "string", "format": "date-time", "description": "ISO-8601 UTC (FR-I18N-3)." },
+    "apiVersion": { "type": "integer", "const": 1 },
+    "error": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["error", "message"],
+      "description": "Error envelope (Appendix C.4). 'message' is user-presentable and MUST contain no filesystem paths, no OS username, and no stack trace.",
+      "properties": {
+        "error": {
+          "enum": ["bad_identifier", "malformed_body", "no_session", "bad_origin", "bad_csrf",
+                   "not_found", "conflict", "too_large", "bad_content_type", "rate_limited",
+                   "io_error", "read_only"]
+        },
+        "message": { "type": "string", "maxLength": 300 },
+        "detail": { "type": "object", "additionalProperties": true },
+        "retry_after_seconds": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["api_version", "game_id", "release", "engine_version", "save_version", "data_writable"],
+      "description": "GET /api/state. The shell checks api_version compatibility (FR-API-12) and data_writable to decide between normal and In-Memory Session mode (FR-SAVE-18).",
+      "properties": {
+        "api_version": { "$ref": "#/$defs/apiVersion" },
+        "game_id": { "type": "string", "pattern": "^[a-z0-9]+(\\.[a-z0-9-]+)+$" },
+        "release": { "type": "string", "pattern": "^[0-9]{4}\\.[0-9]{2}\\.[0-9]+$" },
+        "engine_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "save_version": { "type": "integer", "minimum": 1 },
+        "data_writable": {
+          "type": "boolean",
+          "description": "Result of the startup write probe (FR-SAVE-16). False means read-only or noexec media: saves are held in server memory for this session only (FR-SAVE-18)."
+        },
+        "data_dir_kind": { "enum": ["game", "override"], "description": "'override' means --data-dir was used, so saves do not travel with the game folder (FR-SAVE-19)." },
+        "writer": {
+          "type": ["string", "null"],
+          "description": "Session id currently holding the writer role, or null. Used for single-writer election across tabs (FR-SHELL-3)."
+        },
+        "uptime_seconds": { "type": "integer", "minimum": 0 },
+        "heartbeat_interval_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 60,
+          "description": "FR-SRV-18. The client-side heartbeat cadence the shell uses while the page is visible; a hidden page uses six times this value. Published so server.heartbeat_interval_seconds is not inert."
+        }
+      }
+    },
+    "saveSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["slot", "revision"],
+      "properties": {
+        "slot": { "$ref": "#/$defs/identifier" },
+        "save_version": { "type": "integer", "minimum": 1 },
+        "game_version": { "type": "string" },
+        "modified": { "$ref": "#/$defs/timestamp" },
+        "revision": { "type": "integer", "minimum": 1, "description": "Server-owned monotonic revision (FR-SAVE-9)." },
+        "playtime_seconds": { "type": "integer", "minimum": 0 },
+        "size": { "type": "integer", "minimum": 0 },
+        "corrupt": { "type": "boolean", "description": "True when the slot failed validation and only a .bak is loadable (Section 11.6)." }
+      }
+    },
+    "saveList": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["saves"],
+      "description": "GET /api/data/saves. Must be correct even when data/saves/index.json is missing; rebuilt_index reports that the index was reconstructed (Section 11.3).",
+      "properties": {
+        "saves": { "type": "array", "items": { "$ref": "#/$defs/saveSummary" } },
+        "rebuilt_index": { "type": "boolean" }
+      }
+    },
+    "saveWrite": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["slot", "payload"],
+      "description": "POST /api/save.",
+      "properties": {
+        "slot": { "$ref": "#/$defs/identifier" },
+        "if_revision": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Optimistic-concurrency token. If it does not match the current revision the server returns 409 conflict (FR-SAVE-9). Omit only for a deliberate unconditional overwrite."
+        },
+        "claim": { "type": "boolean", "default": false, "description": "Request the cross-tab writer role (FR-SHELL-3). Returns 409 if another session holds it." },
+        "compression": { "enum": ["none", "deflate", "zstd"], "default": "none" },
+        "payload": { "type": "object", "description": "Engine-defined state. Unknown fields MUST be preserved on rewrite (FR-SAVE-4)." },
+        "meta": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "playtime_seconds": { "type": "integer", "minimum": 0 },
+            "title": { "type": "string", "maxLength": 120 },
+            "thumbnail": { "type": "string", "description": "Relative path within data/, never absolute." }
+          }
+        }
+      }
+    },
+    "saveWriteResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["slot", "revision", "modified", "bytes"],
+      "properties": {
+        "slot": { "$ref": "#/$defs/identifier" },
+        "revision": { "type": "integer", "minimum": 1 },
+        "modified": { "$ref": "#/$defs/timestamp" },
+        "bytes": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "conflict": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["error", "message", "current_revision"],
+      "description": "409 response to a stale if_revision. The shell MUST present overwrite / save-as-new-slot / cancel, defaulting to a new slot (FR-SAVE-10).",
+      "properties": {
+        "error": { "const": "conflict" },
+        "message": { "type": "string" },
+        "current_revision": { "type": "integer", "minimum": 1 },
+        "modified": { "$ref": "#/$defs/timestamp" },
+        "slot": { "$ref": "#/$defs/identifier" }
+      }
+    },
+    "configWrite": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["merge"],
+      "description": "POST /api/config. Merge-write of top-level keys; the server MUST preserve keys the request does not mention.",
+      "properties": {
+        "if_revision": { "type": "integer", "minimum": 0 },
+        "merge": { "type": "object", "minProperties": 1 }
+      }
+    },
+    "revisionResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["revision", "modified"],
+      "properties": {
+        "revision": { "type": "integer", "minimum": 1 },
+        "modified": { "$ref": "#/$defs/timestamp" }
+      }
+    },
+    "mods": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "available"],
+      "description": "GET /api/data/config/mods. Enabling or disabling a mod reloads the overlay at next boot (FR-AST-13).",
+      "properties": {
+        "enabled": { "type": "array", "items": { "$ref": "#/$defs/identifier" } },
+        "available": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "enabled"],
+            "properties": {
+              "id": { "$ref": "#/$defs/identifier" },
+              "name": { "type": "string", "maxLength": 80 },
+              "version": { "type": "string" },
+              "enabled": { "type": "boolean" },
+              "priority": { "type": "integer", "minimum": 0, "maximum": 1000 },
+              "missing_dependency": { "type": "string", "description": "Set when the mod is disabled because a required mod is absent (mod manifest 'requires')." }
+            }
+          }
+        }
+      }
+    },
+    "modAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "action"],
+      "description": "POST /api/mod. 'install' is for user-supplied archives only; the game itself never downloads mods (offline-first, Section 1.3).",
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "action": { "enum": ["install", "enable", "disable"] },
+        "archive_bytes": { "type": "string", "contentEncoding": "base64" }
+      }
+    },
+    "session": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["token"],
+      "description": "POST /__kobra/session body. The token arrives via the URL fragment and is single-use with a 120 s TTL (FR-SRV-7, FR-API-13).",
+      "properties": { "token": { "type": "string", "minLength": 32, "maxLength": 256 } }
+    },
+    "sessionResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["session_id", "csrf_token", "api_version"],
+      "description": "Session exchange response. csrf_token is also set as a non-HttpOnly cookie; writes must echo it in X-Kobra-CSRF (FR-SRV-6a).",
+      "properties": {
+        "session_id": { "type": "string" },
+        "csrf_token": { "type": "string", "minLength": 32 },
+        "api_version": { "$ref": "#/$defs/apiVersion" }
+      }
+    },
+    "probe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["app", "game_id", "instance"],
+      "description": "GET /__kobra/probe. Unauthenticated and deliberately opaque: no filesystem path, no OS username, no game folder location (FR-SRV-9). Used for free-port detection and same-game-already-running detection (Section 6.3).",
+      "properties": {
+        "app": { "const": "kobra-launcher" },
+        "game_id": { "type": "string", "pattern": "^[a-z0-9]+(\\.[a-z0-9-]+)+$" },
+        "instance": { "type": "string" },
+        "release": { "type": "string" },
+        "port": { "type": "integer", "minimum": 1024, "maximum": 65535 }
+      }
+    }
+  }
+}

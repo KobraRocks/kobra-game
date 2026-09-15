@@ -1,0 +1,19 @@
+{
+  "schema": "kobra.fixture-levels/1",
+  "levels": [
+    {
+      "id": "sandbox",
+      "name": "Sandbox",
+      "grid": [8, 8],
+      "spawn": [1, 1],
+      "notes": "Default level. The shell renders this as a checkerboard using textures/checker.png."
+    },
+    {
+      "id": "roundtrip",
+      "name": "Save Round-Trip",
+      "grid": [16, 16],
+      "spawn": [4, 4],
+      "notes": "Used by testgame/run.sh to prove a save survives an atomic write and a re-read."
+    }
+  ]
+}

@@ -1,0 +1,325 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kobra.games/schemas/launcher.config.schema.json",
+  "title": "Kobra Launcher Configuration",
+  "description": "Companion to launcher/launcher.config.json (spec Sections 6.2, 8, Appendix D.2). Configures the native launcher: deterministic user-confirmed port, loopback-only server, and the write API policy. v2.0's FSA-oriented options (serve_user_mods) are removed; v1.0's default_port: 0 was removed in v2.0.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "game_id",
+    "game_name",
+    "port"
+  ],
+  "properties": {
+    "schema": {
+      "const": "kobra.launcher-config/1"
+    },
+    "game_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(\\.[a-z0-9-]+)+$",
+      "description": "Stable reverse-DNS identifier, e.g. com.kobra.stardrifter. Keys the origin-scoped handle store (FR-FSA-1), the sidecar state directory (Section 5.3), and the deterministic port hash (Section 6.2)."
+    },
+    "game_name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "release": {
+      "type": "string",
+      "pattern": "^[0-9]{4}\\.[0-9]{2}\\.[0-9]+$"
+    },
+    "port": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "base",
+        "span"
+      ],
+      "description": "Deterministic port policy. The chosen port is persisted outside the game folder, because the game folder is portable across machines and the port is machine-local state.",
+      "properties": {
+        "base": {
+          "type": "integer",
+          "minimum": 1024,
+          "maximum": 49151,
+          "default": 8765,
+          "description": "Start of the candidate window. Ports below 1024 are rejected as privileged (Section 6.5)."
+        },
+        "span": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000,
+          "default": 100,
+          "description": "Size of the candidate window, base..base+span-1. Default yields 8765-8864."
+        },
+        "require_confirmation": {
+          "type": "boolean",
+          "default": true,
+          "description": "FR-PORT-2. When true the launcher proposes the port and the user confirms or edits it before the server starts. Setting this to false is only permitted for automation and MUST be paired with a front-end the user controls."
+        },
+        "allow_out_of_range": {
+          "type": "boolean",
+          "default": true,
+          "description": "Permit a user-typed port outside base..base+span-1, subject to the deny list and privileged-port checks."
+        },
+        "deny_list_file": {
+          "type": "string",
+          "default": "port-deny-list.json",
+          "description": "Shared deny list consumed by both the launcher and the shell (Section 6.4), versioned with the launcher."
+        }
+      }
+    },
+    "server": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "bind": {
+          "const": "127.0.0.1",
+          "description": "FR-SRV-1/FR-SRV-2. Loopback-only, literal IPv4. 0.0.0.0, ::, localhost and any LAN address are rejected."
+        },
+        "idle_timeout_seconds": {
+          "type": "integer",
+          "minimum": 30,
+          "maximum": 3600,
+          "default": 90,
+          "description": "FR-SRV-19. Shut down after this long without a heartbeat. The 30 s floor is normative."
+        },
+        "heartbeat_interval_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 60,
+          "default": 5,
+          "description": "FR-SRV-18. Client-side cadence while the page is visible; hidden pages use 6x this value."
+        },
+        "max_range_bytes": {
+          "type": "integer",
+          "minimum": 65536,
+          "default": 8388608,
+          "description": "Largest single HTTP Range response; used for audio/video seeking (FR-SRV-14)."
+        },
+        "session_ttl_seconds": {
+          "type": "integer",
+          "minimum": 60,
+          "default": 28800,
+          "description": "FR-SRV-7. Lifetime of the session cookie obtained by exchanging the bootstrap token."
+        },
+        "bootstrap_token_ttl_seconds": {
+          "type": "integer",
+          "minimum": 10,
+          "maximum": 600,
+          "default": 120,
+          "description": "FR-SRV-7. Single-use token lifetime; short by design."
+        },
+        "probe_path": {
+          "type": "string",
+          "pattern": "^/__[a-z]+/(probe|health)$",
+          "default": "/__kobra/probe",
+          "description": "FR-SRV-9/T12. Opaque, compile-time-configurable probe endpoint returning only app, game_id, instance, release and port."
+        },
+        "csp": {
+          "type": "string",
+          "description": "FR-SRV-17. Strict Content-Security-Policy for the game origin. The default is loopback-only and forbids all network egress, which enforces the offline-first non-goal."
+        },
+        "serve_mods": {
+          "type": "boolean",
+          "default": true,
+          "description": "Serve enabled mods at /mods/* read-only (FR-AST-11). /api/data/config/mods stays session-gated either way."
+        },
+        "csrf_required": {
+          "const": true,
+          "description": "FR-SRV-6a. Double-submit CSRF token on every write. Fixed true; there is no supported reason to disable it."
+        },
+        "drain_timeout_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 120,
+          "default": 15,
+          "description": "FR-SRV-20. Seconds allowed for in-flight atomic writes to finish during shutdown."
+        }
+      }
+    },
+    "browser_preference": {
+      "type": "array",
+      "uniqueItems": true,
+      "default": [
+        "chrome",
+        "msedge",
+        "brave",
+        "opera"
+      ],
+      "description": "Probe order for browser detection (Section 13.4). Firefox is intentionally absent: it has no API blocker since v2.1, but the engine's rendering backend is unverified there, so it is not advertised (Section 15.1).",
+      "items": {
+        "enum": [
+          "chrome",
+          "msedge",
+          "brave",
+          "opera",
+          "vivaldi",
+          "chromium",
+          "firefox",
+          "custom"
+        ]
+      }
+    },
+    "min_browser_version": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "FR-COMPAT-1/FR-LNCH-6. Below these versions the launcher blocks rather than launching into a broken game. Firefox/Safari are not listed because they are not supported targets (Section 15.1).",
+      "properties": {
+        "chrome": {
+          "type": "integer",
+          "minimum": 105,
+          "default": 105
+        },
+        "edge": {
+          "type": "integer",
+          "minimum": 105,
+          "default": 105
+        },
+        "opera": {
+          "type": "integer",
+          "minimum": 91,
+          "default": 91
+        },
+        "brave": {
+          "type": "string",
+          "default": "1.45"
+        }
+      }
+    },
+    "mime_types": {
+      "type": "object",
+      "description": "FR-SRV-13. Explicit MIME mapping. An extension absent from this table is served as application/octet-stream with Content-Disposition: attachment.",
+      "propertyNames": {
+        "pattern": "^\\.?[A-Za-z0-9]+$"
+      },
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^[a-z]+/[A-Za-z0-9.+-]+$"
+      },
+      "default": {
+        ".wasm": "application/wasm",
+        ".js": "text/javascript",
+        ".mjs": "text/javascript",
+        ".json": "application/json",
+        ".html": "text/html",
+        ".css": "text/css",
+        ".ogg": "audio/ogg",
+        ".mp3": "audio/mpeg",
+        ".png": "image/png",
+        ".webp": "image/webp",
+        ".svg": "image/svg+xml",
+        ".woff2": "font/woff2"
+      }
+    },
+    "update": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Section 12. Manual replacement is always supported; the patch path is optional convenience.",
+      "properties": {
+        "channel": {
+          "enum": [
+            "manual",
+            "patch",
+            "none"
+          ],
+          "default": "manual"
+        },
+        "patch_base_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "Used only by the launcher-assisted patch path, never by the game origin (the CSP forbids network access there)."
+        },
+        "update_check_user_initiated_only": {
+          "const": true,
+          "description": "FR-UPD-2. Background update checks are forbidden by the offline-first non-goal. The launcher performs the outbound request on the user's behalf, because the page's CSP forbids network access (Section 12.2C)."
+        },
+        "retain_previous_release": {
+          "type": "boolean",
+          "default": true,
+          "description": "FR-UPD-7. Keep game.old until the new release has started successfully twice."
+        },
+        "protect_data_dir": {
+          "const": true,
+          "description": "FR-UPD-7. The launcher verifies after extraction that the archive did not touch data/, and aborts the swap if it did."
+        }
+      }
+    },
+    "diagnostics": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "log_retention_files": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 5
+        },
+        "log_max_bytes": {
+          "type": "integer",
+          "minimum": 65536,
+          "default": 1048576
+        },
+        "expose_filesystem_paths": {
+          "const": false,
+          "description": "FR-SRV-9/FR-BETA-2. The diagnostics payload MUST NOT contain filesystem paths or the OS username."
+        }
+      }
+    },
+    "locales": {
+      "type": "array",
+      "uniqueItems": true,
+      "default": [
+        "en"
+      ],
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z]{2}(-[A-Za-z]{2,4})?$"
+      },
+      "description": "FR-I18N-1/FR-I18N-2. Shipped locale catalogs; resolution falls back to en."
+    },
+    "data_api": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Policy for the launcher's write API (spec Section 8, Appendix C). Defaults are chosen so that a compromised page cannot quietly fill the user's disk (FR-API-7).",
+      "properties": {
+        "max_request_bytes": {
+          "type": "integer",
+          "minimum": 1048576,
+          "maximum": 1073741824,
+          "default": 67108864,
+          "description": "Bodies larger than this are rejected with 413 before being read (FR-API-9). Default 64 MiB."
+        },
+        "writes_per_minute": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 100,
+          "description": "Per-session write quota; exceeding it returns 429 with Retry-After (FR-API-7)."
+        },
+        "bytes_per_minute": {
+          "type": "integer",
+          "minimum": 1048576,
+          "default": 67108864,
+          "description": "Per-session write volume quota."
+        },
+        "keep_revisions": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 64,
+          "default": 8,
+          "description": "Revision sidecars retained per save slot for conflict diagnosis."
+        },
+        "trash_retention_days": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 30,
+          "description": "How long deleted saves and mods stay in data/.trash-<ts>/ before cleanup. 0 keeps them indefinitely."
+        },
+        "allow_data_dir_override": {
+          "type": "boolean",
+          "default": true,
+          "description": "Permit --data-dir to relocate data/ (FR-SAVE-19)."
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kobra.games/schemas/engine.manifest.schema.json",
+  "title": "Kobra Engine Manifest",
+  "description": "Companion to game/engine/engine.manifest.json. Declares engine compatibility metadata and the features the shell must detect before starting the engine. Spec Appendix B.2. The v2.0 bridge/preload blocks are REMOVED: they existed only to work around asynchronous File System Access reads, which v2.1 eliminates.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema",
+    "engine_version",
+    "wasm",
+    "glue",
+    "save_version"
+  ],
+  "properties": {
+    "schema": {
+      "const": "kobra.engine-manifest/1",
+      "description": "Schema identifier. Readers MUST reject an unknown major version and MUST accept higher minor versions, ignoring unknown fields."
+    },
+    "release": {
+      "type": "string",
+      "pattern": "^[0-9]{4}\\.[0-9]{2}\\.[0-9]+$",
+      "description": "Release identifier this engine ships in, e.g. 2026.09.1."
+    },
+    "engine_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "Semantic version of the engine core."
+    },
+    "wasm": {
+      "$ref": "#/$defs/enginePath"
+    },
+    "glue": {
+      "$ref": "#/$defs/enginePath"
+    },
+    "wasm_hash": {
+      "$ref": "#/$defs/hash",
+      "description": "Mandatory-at-install hash of the WASM binary. Verified by the launcher during update, not at every boot."
+    },
+    "glue_hash": {
+      "$ref": "#/$defs/hash"
+    },
+    "save_version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Save format version this engine reads and writes. MUST equal the release manifest save_version or the release build fails (FR-SCH-5)."
+    },
+    "required_features": {
+      "type": "array",
+      "uniqueItems": true,
+      "description": "WASM and browser features the engine requires. The shell MUST feature-detect these and fail into the error matrix entry E1/E12 rather than at first use.",
+      "items": {
+        "enum": [
+          "wasm",
+          "simd",
+          "threads",
+          "bulk-memory",
+          "reference-types",
+          "webgpu",
+          "webgl2",
+          "shared-array-buffer"
+        ]
+      }
+    },
+    "min_browser": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Engine-level minimums. The product-wide minimum is Chrome/Edge 105 (Section 15.1); an engine MAY require more.",
+      "properties": {
+        "chrome": {
+          "type": "integer",
+          "minimum": 105
+        },
+        "edge": {
+          "type": "integer",
+          "minimum": 105
+        },
+        "opera": {
+          "type": "integer",
+          "minimum": 91
+        }
+      }
+    },
+    "memory": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "initial_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maximum_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Engine memory ceiling. Spec target is under 1.2 GiB (Section 17.1)."
+        }
+      }
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "$defs": {
+    "hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "Lowercase hex SHA-256 with an algorithm prefix."
+    },
+    "enginePath": {
+      "type": "string",
+      "pattern": "^engine/(?!\\.\\.?(/|$))[A-Za-z0-9._-]+(/(?!\\.\\.?(/|$))[A-Za-z0-9._-]+)*$",
+      "description": "Path under engine/. The engine and glue are load-bearing: they MUST NOT live outside engine/ (FR-AST-12)."
+    }
+  }
+}

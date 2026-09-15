@@ -1,0 +1,22 @@
+# Package Test Game — unit cube.
+# Served at /assets/models/box.obj. `.obj` is not in the launcher's default
+# MIME table, so launcher.config.json maps it explicitly; without that entry the
+# launcher would serve it as application/octet-stream with
+# Content-Disposition: attachment (FR-SRV-13) and the engine could not fetch it.
+
+mtllib box.mtl
+o cube
+v -1 -1 -1
+v  1 -1 -1
+v  1  1 -1
+v -1  1 -1
+v -1 -1  1
+v  1 -1  1
+v  1  1  1
+v -1  1  1
+f 1 2 3 4
+f 5 8 7 6
+f 1 5 6 2
+f 2 6 7 3
+f 3 7 8 4
+f 5 1 4 8

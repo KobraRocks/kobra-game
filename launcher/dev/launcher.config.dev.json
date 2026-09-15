@@ -1,0 +1,13 @@
+{
+  "schema": "kobra.launcher-config/1",
+  "game_id": "dev.kobra.localgame",
+  "game_name": "Local Development Game",
+  "port": {
+    "base": 19700,
+    "span": 100,
+    "require_confirmation": false
+  },
+  "server": {
+    "idle_timeout_seconds": 3600
+  }
+}

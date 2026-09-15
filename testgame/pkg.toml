@@ -1,0 +1,55 @@
+# Packaging input for the Kobra package test game.
+#
+# This is the file the packaging pipeline of architecture/Packaging-spec.md §5
+# reads. The key set follows §14.1; the release-identity keys follow §4.4/§4.5
+# and the platform matrix follows §10.
+#
+# Nothing here is a build output. The tree this points at (pkgroot = ".") is a
+# development tree, not a package: it has no assembled launcher/, no data/
+# skeleton, and no generated manifests. See README.md.
+
+[package]
+slug        = "pkgtest"                    # §3.2: must equal the last segment of game_id
+game_id     = "com.kobra.pkgtest"          # §2.3: keys the sidecar dir and the port hash
+game_name   = "Kobra Package Test"
+pkgroot     = "."                          # §2.2: the directory containing game/
+
+[release]
+release          = "2026.09.1"             # §4.2: calver YYYY.MM.N, immutable
+game_version     = "1.0.0"                 # §4.4: publisher-owned content version
+engine_version   = "0.1.0"                 # §4.4: must equal engine.manifest.json
+save_version     = 1                       # §4.4: must equal engine.manifest.json
+launcher_min     = "0.1.0"                 # §4.3: must be <= the packaged launcher's version
+channel          = "stable"                # §8.1: release label (not the update mechanism)
+scope            = "full"                  # §9.2: full | game-only | patch
+previous_release = ""                      # first release; a patch release MUST set this
+
+[launcher]
+# §2.3: the packaged launcher/ directory is the game-owned config plus a
+# game-agnostic binary, the deny list, and a generated VERSION file.
+config      = "launcher/launcher.config.json"
+deny_list   = "../launcher/port-deny-list.json"
+binary_dir  = "../launcher/dist"           # as produced by `make -C launcher cross`
+# §4.6: VERSION is generated from the binary (`--version`), never hand-edited,
+# so the file and the binary cannot drift.
+version_source = "binary"
+
+[platforms.linux-x64]
+goos   = "linux"
+goarch = "amd64"
+binary = "launcher"
+archive_platform = "linux-x64"             # §3.2
+
+[platforms.win64]
+goos   = "windows"
+goarch = "amd64"
+binary = "launcher.exe"
+archive_platform = "win64"
+
+[publish]
+# A placeholder on purpose: the fixture never publishes anywhere. §8.3 defines
+# the layout a real publisher serves; testgame/run.sh serves out/ over loopback
+# instead, which the launcher accepts because it permits http for the update
+# base (internal/update/http.go).
+base    = "https://example.invalid/pkgtest"
+gpg_key = ""                               # empty means "hash-only release", §7.4

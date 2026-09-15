@@ -1,0 +1,99 @@
+name: Bug report (launcher)
+description: Something the launcher did wrong — it crashed, hung, refused to start, or misbehaved.
+title: "[launcher] "
+labels: ["bug", "launcher"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before you file: `testgame/` is the known-good baseline. If
+        `make -C testgame package && make -C testgame e2e` passes on your machine,
+        the problem is likely in the game package or its config rather than the
+        launcher — that is still worth reporting, but say so below.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you saw, and what you expected instead.
+      placeholder: |
+        I ran launcher/launcher in a packaged game. It exited with code 1 and
+        printed "The game files are missing". The folder does contain game/index.html.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How to reproduce
+      description: Steps, smallest first. A command sequence is ideal.
+      placeholder: |
+        1. unzip mygame-2026.09.1-linux-x64.zip
+        2. cd Mygame && ./launcher/launcher --no-open
+        3. observe exit code
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Launcher version
+      description: Output of `launcher/launcher --version`.
+      placeholder: "kobra-launcher 0.1.0 (abc1234) built 2026-09-15T17:00:00Z"
+    validations:
+      required: true
+
+  - type: input
+    id: release
+    attributes:
+      label: Release id
+      description: The `release` field in `launcher/launcher.config.json`.
+      placeholder: "2026.09.1"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Linux
+        - Windows
+        - macOS
+        - FreeBSD or another BSD
+        - Something else (say so in the description)
+    validations:
+      required: true
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: "`--diagnostics` output"
+      description: |
+        Run `launcher/launcher --diagnostics` and paste the output. It is built to
+        contain no filesystem paths, usernames or tokens, so it is safe to share.
+      render: json
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log tail, if the launcher would not start
+      description: |
+        The launcher writes structured JSON lines to its machine-local state
+        directory; `--diagnostics` includes the last 200 lines. If you have the
+        file, the interesting events are the last few before it stopped.
+      render: text
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Before submitting
+      options:
+        - label: I checked that no token, save file or personal path is in what I pasted.
+          required: true
+        - label: I searched existing issues for this problem.
+          required: true

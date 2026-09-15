@@ -1,0 +1,82 @@
+name: Packaging problem
+description: kobra-pack rejected your game, produced a package that will not run, or verify failed.
+title: "[packaging] "
+labels: ["bug", "packaging"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The packager's errors are event lines that name the file and the rule:
+        `[error] pack.scan.reject path=game/index.html reason=required by §5.4 but missing`.
+        Pasting that line is usually enough to identify the problem. If you have
+        not read it yet, [the authoring guide](https://github.com/KobraRocks/kobra-game/blob/main/docs/authoring-a-game.md)
+        lists every rule `check` enforces.
+
+  - type: textarea
+    id: command
+    attributes:
+      label: The command you ran
+      placeholder: "kobra-pack build --config pkg.toml --platform linux-x64 --out dist --install"
+    validations:
+      required: true
+
+  - type: textarea
+    id: output
+    attributes:
+      label: Output
+      description: The full output, including any `pack.*` event lines.
+      render: text
+    validations:
+      required: true
+
+  - type: dropdown
+    id: stage
+    attributes:
+      label: Which stage failed
+      options:
+        - check
+        - build
+        - verify
+        - dev
+        - The package built, but the launcher would not run it
+    validations:
+      required: true
+
+  - type: textarea
+    id: structure
+    attributes:
+      label: Your game folder layout
+      description: |
+        The output of `find . -maxdepth 3 -not -path './.git/*' | sort` is ideal.
+        If the file names are private, the shape under `game/` is what matters —
+        root files, and which prefixes the rest sit under.
+      render: text
+    validations:
+      required: false
+
+  - type: textarea
+    id: pkginfo
+    attributes:
+      label: Relevant `pkg.toml`
+      description: "The `[package]` and `[release]` sections, with anything private removed."
+      render: toml
+    validations:
+      required: false
+
+  - type: input
+    id: version
+    attributes:
+      label: kobra-pack version
+      description: Output of `kobra-pack --version`.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Before submitting
+      options:
+        - label: I ran `kobra-pack check` and pasted its output rather than only `build`'s.
+          required: true
+        - label: I searched existing issues for this problem.
+          required: true

@@ -1,0 +1,68 @@
+name: Feature or design request
+description: Something the launcher, the packager or the specifications cannot do that your game needs.
+title: "[feature] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Design feedback before a patch is much cheaper than after one. If you are
+        proposing a change to a shipped contract — the data API, the config
+        schema, a manifest, an event name or an exit code — say so explicitly:
+        those break other people's games.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What your game needs to do, and why the current surface cannot express it.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would like
+      description: A concrete shape helps, but a description of the need is more important than the API.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Data API (saves, config, mods, export)
+        - Update mechanism
+        - Port allocation or startup
+        - Packaging or manifests
+        - Browser support or detection
+        - Diagnostics or logging
+        - Specifications themselves
+        - Something else
+    validations:
+      required: true
+
+  - type: dropdown
+    id: contract
+    attributes:
+      label: Would this change a shipped contract?
+      description: |
+        A change here is a breaking change for existing games and has to be
+        versioned, not slipped in.
+      options:
+        - "No — new optional surface"
+        - "Yes — an existing contract changes (say how in the description)"
+        - "Not sure"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: alternatives
+    attributes:
+      label: Before submitting
+      options:
+        - label: I looked for a way to do this with the current API (and said why it does not work).
+          required: false
+        - label: I searched existing issues and discussions for this request.
+          required: true

@@ -49,8 +49,10 @@ Known gaps, stated plainly:
 | `packaging/` | `kobra-pack`, the publisher's toolchain: validates a game folder, builds reproducible `.zip` and `.tar.zst` archives, writes release manifests, verifies a published directory. Also a `dev` command that serves a source tree without packaging it. See `packaging/README.md`. |
 | `testgame/` | A complete fixture game — the conformance suite for both tools. The real packager builds it and the real launcher runs it, end to end, including an update. See `testgame/README.md`. |
 | `architecture/` | The specifications: functional, launcher, packaging, updater, plus the published JSON schemas in `architecture/schemas/`. |
+| `docs/` | Guides for people building on this: currently [authoring a game](docs/authoring-a-game.md). |
 | `.e2e/` | The launcher smoke drive: build, serve, exercise the API and the gates, drain. |
 | `.github/workflows/` | CI: the same make targets a contributor runs locally. |
+| `CONTRIBUTING.md` | How to set up, which gates to run, and the rules of the house. |
 | `CODE-REVIEW.md` | The review record, including deferred items and why. |
 
 ## Quick start
@@ -80,9 +82,13 @@ and rebuild the data scaffolding), `--check-port`, `--port`, `--data-dir`,
 
 ### Making your own game
 
-A game is a folder with `game/index.html`, `game/shell.js` and an optional
-`pkg.toml` describing the releases. `testgame/` is the worked example: copy its
-shape, then
+A game is a folder with `game/index.html`, `game/shell.js` and a `pkg.toml`
+describing its releases. `testgame/` is the worked example.
+
+**[Authoring a game](docs/authoring-a-game.md)** is the full guide: the folder
+contract, the shell boot sequence, the data API (saves, settings, mods, updates),
+what the packager generates versus what you write, and every rule `check`
+enforces. The short version:
 
 ```bash
 kobra-pack check --config pkg.toml --platform linux-x64   # the gate your CI runs
@@ -163,16 +169,21 @@ rest of the table is best-effort and worth checking before you rely on it.
 
 ## Contributing
 
-Issues and pull requests are welcome. Before opening one:
+Issues and pull requests are welcome — see **[CONTRIBUTING.md](CONTRIBUTING.md)**
+for setup, the gates, and the rules of the house. The short version:
 
 1. Run the gates for whatever you touched (table above). A change to the updater
-   should also run `make -C launcher faultinject`.
+   or the storage engine should also run `make -C launcher faultinject`.
 2. Keep the specs and the code in step; cite section numbers as the surrounding
-   code does.
+   code does, and update the spec in the same pull request if behaviour it
+   describes changes.
 3. Add a regression test for a fixed bug. Every fix in `CODE-REVIEW.md` has one,
    and it is usually named after the failure rather than the function.
 4. Prefer deleting a claim over keeping dead machinery: if a config key, event or
    build tag does nothing, remove it rather than documenting it.
+
+Building a game rather than changing the launcher? Start with
+[authoring a game](docs/authoring-a-game.md).
 
 ## Licence
 

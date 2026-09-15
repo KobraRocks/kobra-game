@@ -1,0 +1,14 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Authoring a game
+    url: https://github.com/KobraRocks/kobra-game/blob/main/docs/authoring-a-game.md
+    about: What to write, what the packager generates, and the rules check enforces — read this before filing a packaging issue.
+  - name: Contributing
+    url: https://github.com/KobraRocks/kobra-game/blob/main/CONTRIBUTING.md
+    about: How to set up, which gates to run, and the rules of the house.
+  - name: Specifications
+    url: https://github.com/KobraRocks/kobra-game/tree/main/architecture
+    about: The normative documents the code cites — functional, launcher, packaging and updater.
+  - name: Review record
+    url: https://github.com/KobraRocks/kobra-game/blob/main/CODE-REVIEW.md
+    about: Known gaps, deliberate deviations and what remains open.

@@ -30,13 +30,24 @@ GOMODCACHE  ?= $(REPO_ROOT)/.gocache/mod
 GOSUMDB     := off
 export GOCACHE GOMODCACHE GOSUMDB
 
-.PHONY: all build test vet fmt race dist cross dist-linux clean tidy smoke
+.PHONY: all build test vet fmt race faultinject dist cross dist-linux clean tidy smoke
 
 all: build
 
 ## build: native binary at launcher/launcher
 build:
 	go build $(GOFLAGS) -ldflags '$(LDFLAGS)' -o $(BIN) $(CMD)
+
+## faultinject: the §26.4 crash-safety scenarios. Builds with the
+## kobra_faultinject tag, runs the tagged Go tests (EXDEV fallback, disk-full
+## mapping, injected panic through the middleware), then drives the scenarios
+## that need a real process in test/faultinject.sh: a crash between fsync and
+## rename with the temp file quarantined on the next start, a crash between
+## rename and the directory fsync, a panicking handler exiting 4, and a signal
+## during drain. A release build contains none of this machinery.
+faultinject:
+	go test -tags kobra_faultinject ./...
+	bash test/faultinject.sh
 
 ## test: unit, contract and package tests
 test:

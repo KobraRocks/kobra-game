@@ -264,12 +264,14 @@ func (p *Pipeline) Run(opts Options) (*Result, error) {
 		// README.txt's "Extracted size" is what a user gets when they unzip the
 		// package, so it counts the whole archive, not only the release index:
 		// the index sums game/ and launcher/ but the ZIP also carries the
-		// release manifest, README.txt and LICENSES/README.txt (data/.keep is
-		// zero bytes). The manifest's own total_size stays the index sum,
-		// because that is the payload the launcher checks the update archive
-		// against (schema release.manifest.json, archive section).
+		// release manifest, README.txt, LICENSES/README.txt and
+		// LICENSES/THIRD_PARTY_NOTICES.md (data/.keep is zero bytes). The
+		// manifest's own total_size stays the index sum, because that is the
+		// payload the launcher checks the update archive against (schema
+		// release.manifest.json, archive section).
 		manifestSize := fileSize(filepath.Join(stage, prep.gameName, filepath.FromSlash(ManifestRel)))
-		extracted := staged.totalSize + manifestSize + readmeSize(prep.gameName) + int64(len(licenceNotice))
+		extracted := staged.totalSize + manifestSize + readmeSize(prep.gameName) +
+			int64(len(licenceNotice)) + int64(len(thirdPartyNotices))
 		sizes := Sizes{Download: 0, Extracted: extracted, Recommended: extracted * 3}
 		settled := false
 		for attempt := 0; attempt < 8; attempt++ {

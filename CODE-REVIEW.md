@@ -120,6 +120,45 @@ the `kobra-pack check`/`verify` gates all pass.
 
 ---
 
+## Release readiness (after the repository-hardening pass)
+
+The review's release blockers were, in order: no version control or CI, no
+licence, no crash-safety evidence, and the unverified Windows/macOS paths. The
+first three are now closed.
+
+| Blocker | Status |
+|---|---|
+| No version control | Closed: the tree is committed and pushed to `github.com/KobraRocks/kobra-game` (`main`). |
+| No CI | Closed: `.github/workflows/ci.yml` runs exactly the make targets verified locally — `fmt vet test race` and `faultinject` for the launcher, `check race` and the byte-identical-archive check for the packager, plus both end-to-end drives with `zstd` installed for the fixture's `.tar.zst` assertions. |
+| No licence | Closed: `LICENSE` (MIT) plus `THIRD_PARTY_NOTICES.md`, generated from the dependency licence files rather than transcribed. The notices also ship *inside* every package (`LICENSES/THIRD_PARTY_NOTICES.md`), because a package embeds `launcher/launcher` and therefore statically links BSD-3-Clause and Apache-2.0 code — the notices were previously absent from the distributed artefact, which was a real compliance gap. |
+| Crash-safety evidence absent | Closed: the `kobra_faultinject` harness of §26.4 is implemented — a build-tagged injection package with wired points, tagged Go tests for the in-process scenarios, and `launcher/test/faultinject.sh` (`make -C launcher faultinject`) for the ones that need a real process. |
+| Windows/macOS unexecuted | **Open.** Unchanged by this pass: no machine here runs either. The self-replacement path is the specific risk. |
+| Code signing / notarisation | **Open.** Not addressed. |
+| P2-1 atomic-write consolidation | **Open**, deliberately deferred (see above). |
+
+### What building the harness found
+
+Two defects, both of which the harness caught rather than the review:
+
+1. **The spec's quarantine did not exist.** §26.4 asserts that a crash between
+   `fsync` and `rename` leaves the temp file *quarantined*; nothing moved or
+   cleaned it, so `.<slot>.json.tmp-<pid>-<seq>` accumulated in `data/saves/`
+   forever. `Engine.QuarantineStrayTemps` now runs at startup, moves those files
+   into `data/.trash-<ts>/<area>/` (never deletes them — FR-SHELL-4), and logs
+   `save.recover` with `from=quarantine`.
+2. **My own injection ordering was wrong.** The first version injected the EXDEV
+   error *after* the real `os.Rename` had already moved the file, so the fallback
+   ran with no source and failed for the wrong reason — a test that would have
+   "proven" the fallback while exercising a different path. Both call sites now
+   inject before the real rename. `TestPromoteStaysAtomicWhenTheRenameWorks` is
+   the control that keeps the fallback a fallback.
+
+The harness also made two previously untestable scenarios deterministic: the
+`EXDEV` promotion (no longer depends on the machine having two filesystems) and
+the disk-full mapping (no longer needs a real full disk).
+
+---
+
 ## P0 — fix before shipping
 
 ### P0-1. Log rotation self-deadlocks the launcher `[repro]`

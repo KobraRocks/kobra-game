@@ -96,6 +96,62 @@ func TestReadSaveRecoversFromBackupWhenLiveIsMissing(t *testing.T) {
 	}
 }
 
+// TestQuarantineStrayTempsPreservesTheInterruptedWrite covers what §26.4 asserts
+// after a crash between fsync and rename: the temp file an interrupted writeAtomic
+// left behind is moved to the trash area — never deleted — and the data it was
+// replacing is untouched.
+func TestQuarantineStrayTempsPreservesTheInterruptedWrite(t *testing.T) {
+	e, dir := newEngine(t)
+	ctx := context.Background()
+
+	if _, err := e.WriteSave(ctx, SaveWrite{
+		Slot: "slot1", IfRevision: ptr(int64(0)), Payload: json.RawMessage(`{"hp":1}`),
+	}); err != nil {
+		t.Fatalf("setup write: %v", err)
+	}
+
+	// The exact name writeAtomic uses: ".<name>.tmp-<pid>-<seq>".
+	savesDir := filepath.Join(dir, "data", "saves")
+	stray := filepath.Join(savesDir, ".slot1.json.tmp-4242-7")
+	if err := os.WriteFile(stray, []byte(`{"schema":"kobra.save/1"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	n, err := e.QuarantineStrayTemps(ctx)
+	if err != nil {
+		t.Fatalf("QuarantineStrayTemps: %v", err)
+	}
+	if n != 1 {
+		t.Errorf("quarantined %d files, want 1", n)
+	}
+	if _, err := os.Stat(stray); !os.IsNotExist(err) {
+		t.Error("the stray temp file is still in saves/")
+	}
+	quarantined, err := filepath.Glob(filepath.Join(dir, "data", ".trash-*", "saves", ".*.tmp-*"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(quarantined) != 1 {
+		t.Errorf("the trash area holds %d files, want 1: %v", len(quarantined), quarantined)
+	}
+
+	// Nothing else was disturbed.
+	if _, err := e.ReadSave(ctx, "slot1"); err != nil {
+		t.Errorf("the interrupted write's predecessor is no longer readable: %v", err)
+	}
+
+	// A directory that merely looks odd is not touched: only the temp pattern is.
+	if err := os.WriteFile(filepath.Join(savesDir, "notes.txt"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if n, err := e.QuarantineStrayTemps(ctx); err != nil || n != 0 {
+		t.Errorf("a second pass quarantined %d files (err %v), want 0", n, err)
+	}
+	if _, err := os.Stat(filepath.Join(savesDir, "notes.txt")); err != nil {
+		t.Error("an unrelated file in saves/ was quarantined")
+	}
+}
+
 // TestCancelledContextWritesNothing pins the half of the cancellation contract
 // that is observable: a context cancelled before the write starts is still an
 // error, and nothing is created. The other half — a cancellation that arrives

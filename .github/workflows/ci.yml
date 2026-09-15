@@ -1,0 +1,111 @@
+# What this runs is what the reviewers ran by hand. Every step is a make target
+# that also works on a laptop, because a gate that only exists in CI is a gate
+# nobody can reproduce.
+#
+# The Go toolchain version comes from launcher/go.mod; the packaging module
+# builds with the same one (it declares an older minimum, not a different tool).
+#
+# The Makefiles redirect GOCACHE/GOMODCACHE into the workspace (.gocache), which
+# is what lets them run in the read-only-cache sandbox the project was developed
+# in, so setup-go's own caching is off and the cache step below covers those two
+# directories instead.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  GOSUMDB: "off"
+
+jobs:
+  launcher:
+    name: launcher — fmt, vet, test, race, fault injection
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: launcher/go.mod
+          cache: false
+      - name: Cache Go build and module caches
+        uses: actions/cache@v4
+        with:
+          path: |
+            .gocache/build
+            .gocache/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('launcher/go.sum', 'packaging/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+      - name: Formatting, vet, tests, race detector
+        run: make -C launcher fmt vet test race
+      - name: Fault injection (§26.4)
+        # The tagged build, the tagged Go tests (EXDEV fallback, disk-full
+        # mapping, injected panic), and the real-process scenarios: a crash
+        # between fsync and rename with the temp file quarantined on restart, a
+        # crash between rename and the directory fsync, a panicking handler
+        # exiting 4, and a signal during drain.
+        run: make -C launcher faultinject
+
+  packaging:
+    name: packager — check, race, reproducible archives
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: launcher/go.mod
+          cache: false
+      - name: Cache Go build and module caches
+        uses: actions/cache@v4
+        with:
+          path: |
+            .gocache/build
+            .gocache/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('launcher/go.sum', 'packaging/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+      - name: Formatting, vet, tests, race detector
+        run: make -C packaging check race
+      - name: Two packaging builds must be byte-identical
+        # This also runs `kobra-pack check` over the fixture, which is the gate a
+        # publisher's pre-commit hook uses.
+        run: make -C testgame verify
+
+  e2e:
+    name: end-to-end — launcher smoke and the fixture drive
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: launcher/go.mod
+          cache: false
+      - name: Cache Go build and module caches
+        uses: actions/cache@v4
+        with:
+          path: |
+            .gocache/build
+            .gocache/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('launcher/go.sum', 'packaging/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+      - name: Install the tools the drives use
+        # zstd is not on the default image; the fixture unpacks a .tar.zst to
+        # check what was published. curl, python3, unzip, tar and sha256sum are.
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq zstd
+      - name: Launcher smoke drive (build, serve, drive the API, drain)
+        run: bash .e2e/run.sh
+      - name: Fixture drive (package, install, run, update, verify)
+        run: make -C testgame e2e

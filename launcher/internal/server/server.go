@@ -25,6 +25,7 @@ import (
 	"kobragames.local/launcher/internal/config"
 	"kobragames.local/launcher/internal/dataapi"
 	"kobragames.local/launcher/internal/diagnostics"
+	"kobragames.local/launcher/internal/faultinject"
 	"kobragames.local/launcher/internal/kobraerr"
 	"kobragames.local/launcher/internal/paths"
 	"kobragames.local/launcher/internal/session"
@@ -574,6 +575,11 @@ func (s *Server) Panicked() bool { return s.panicked.Load() }
 // level. Tokens are never logged.
 func (s *Server) logging(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// §26.4: every request passes here and recovery wraps this middleware, so
+		// an injected panic exercises the real recovery path — 500 io_error, a
+		// crash dump, and in a real process exit code 4. A no-op in release
+		// builds.
+		faultinject.Point(faultinject.ServerHandler)
 		id := s.requests.Add(1)
 		if s.log.Enabled(diagnostics.LevelDebug) {
 			s.log.Debug("http.request", map[string]any{

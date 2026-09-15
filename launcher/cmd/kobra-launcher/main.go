@@ -358,6 +358,11 @@ func run() int {
 	if err := eng.ProbeWrite(); err != nil {
 		log.Warn("storage.write.probe.failed", map[string]any{"reason": eng.DataWritableReason()})
 	}
+	// Quarantine first: a crash mid-write leaves a temp file beside the data it
+	// was replacing, and §26.4/FR-SHELL-4 want it preserved out of the way
+	// rather than deleted or left to accumulate. Revision rebuild then sees a
+	// clean directory.
+	_, _ = eng.QuarantineStrayTemps(context.Background())
 	_ = eng.InitRevisions(context.Background())
 	_, _ = eng.CleanupTrash(context.Background())
 

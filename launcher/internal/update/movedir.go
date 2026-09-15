@@ -20,6 +20,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+
+	"kobragames.local/launcher/internal/faultinject"
 )
 
 // promoteDir moves src to dst, which must not already exist.
@@ -29,10 +31,17 @@ import (
 // is still one atomic step; src is removed last. The returned flag reports that
 // the degraded path was used, which the caller logs and records in diagnostics.
 func promoteDir(src, dst string) (degraded bool, err error) {
-	if rerr := os.Rename(src, dst); rerr == nil {
+	// §26.4: injected BEFORE the real rename, so the source is still there for
+	// the copy path to read. A failure injected afterwards would leave nothing to
+	// copy and the fallback would fail for the wrong reason.
+	renameErr := faultinject.Err(faultinject.UpdatePromoteRename)
+	if renameErr == nil {
+		renameErr = os.Rename(src, dst)
+	}
+	if renameErr == nil {
 		return false, nil
-	} else if !isCrossDevice(rerr) {
-		return false, rerr
+	} else if !isCrossDevice(renameErr) {
+		return false, renameErr
 	}
 
 	parent := filepath.Dir(dst)

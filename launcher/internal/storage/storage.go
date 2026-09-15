@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"kobragames.local/launcher/internal/diagnostics"
+	"kobragames.local/launcher/internal/faultinject"
 	"kobragames.local/launcher/internal/kobraerr"
 	"kobragames.local/launcher/internal/paths"
 )
@@ -341,11 +342,21 @@ func (e *Engine) writeAtomic(ctx context.Context, target string, data []byte, mo
 		_ = os.Remove(tmp)
 		return err
 	}
+	// §26.4: with the kobra_faultinject tag this models a disk that fills
+	// mid-write. It is a no-op in every release build.
+	if ferr := faultinject.Err(faultinject.StorageWrite); ferr != nil {
+		_ = f.Close()
+		_ = os.Remove(tmp)
+		return ferr
+	}
 	if err := f.Sync(); err != nil {
 		_ = f.Close()
 		_ = os.Remove(tmp)
 		return err
 	}
+	// Crash window 1: the payload is durable, the previous revision has not yet
+	// been rotated aside. Recovery must find the previous revision intact.
+	faultinject.Point(faultinject.StorageWriteAfterFsync)
 	if err := f.Close(); err != nil {
 		_ = os.Remove(tmp)
 		return err
@@ -364,16 +375,27 @@ func (e *Engine) writeAtomic(ctx context.Context, target string, data []byte, mo
 			return err
 		}
 	}
-	if err := os.Rename(tmp, target); err != nil {
-		if !isEXDEV(err) {
+	// §26.4 injects the rename failure BEFORE the real rename: an error injected
+	// afterwards would leave the temp file already moved, and the fallback would
+	// fail for want of a source rather than exercise the copy path.
+	renameErr := faultinject.Err(faultinject.StorageRename)
+	if renameErr == nil {
+		renameErr = os.Rename(tmp, target)
+	}
+	if renameErr != nil {
+		if !isEXDEV(renameErr) {
 			_ = os.Remove(tmp)
-			return err
+			return renameErr
 		}
 		if rerr := e.renameCrossDevice(tmp, target); rerr != nil {
 			_ = os.Remove(tmp)
-			return err
+			return renameErr
 		}
 	}
+	// Crash window 2: the new revision is in place, its directory entry is not
+	// yet fsynced. What survives a power loss is the filesystem's business; the
+	// test asserts the state the next start sees.
+	faultinject.Point(faultinject.StorageWriteAfterRename)
 	if d, err := os.Open(dir); err == nil {
 		_ = d.Sync()
 		_ = d.Close()
@@ -970,6 +992,62 @@ func (e *Engine) moveToTrash(src, trashDir string) error {
 		}
 	}
 	return nil
+}
+
+// QuarantineStrayTemps moves the temp files an interrupted writeAtomic left
+// behind into the trash area (§26.4, FR-SHELL-4).
+//
+// A crash between creating the temp file and renaming it into place leaves
+// ".<name>.tmp-<pid>-<seq>" in data/saves or data/config. The next start must not
+// delete it — no recovery flow may remove user data — and must not leave it to
+// accumulate, so it is quarantined where support can inspect it and the existing
+// trash retention eventually collects it.
+func (e *Engine) QuarantineStrayTemps(ctx context.Context) (int, error) {
+	quarantined := 0
+	trashDir := map[string]string{}
+	for _, area := range []string{"saves", "config"} {
+		dir := e.dirFor(area)
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return quarantined, err
+		}
+		for _, ent := range entries {
+			if err := ctx.Err(); err != nil {
+				return quarantined, err
+			}
+			if ent.IsDir() || !isWriteTempName(ent.Name()) {
+				continue
+			}
+			if _, ok := trashDir[area]; !ok {
+				trashDir[area] = e.newTrashDir(area)
+			}
+			if err := e.moveToTrash(filepath.Join(dir, ent.Name()), trashDir[area]); err != nil {
+				// A temp file that cannot be moved stays where it is: it is not
+				// worth failing startup over, and leaving it keeps it inspectable.
+				e.logf(diagnostics.LevelWarn, "storage.quarantine.failed", map[string]any{"area": area})
+				continue
+			}
+			quarantined++
+			event := "save.recover"
+			if area == "config" {
+				event = "config.recover"
+			}
+			e.logf(diagnostics.LevelWarn, event, map[string]any{"from": "quarantine"})
+		}
+	}
+	if quarantined > 0 {
+		e.logf(diagnostics.LevelInfo, "storage.quarantine", map[string]any{"files": quarantined})
+	}
+	return quarantined, nil
+}
+
+// isWriteTempName recognises the temp files writeAtomic creates:
+// ".<name>.tmp-<pid>-<seq>".
+func isWriteTempName(name string) bool {
+	return strings.HasPrefix(name, ".") && strings.Contains(name, ".tmp-")
 }
 
 // CleanupTrash deletes trash directories older than the retention window. It

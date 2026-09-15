@@ -270,6 +270,11 @@ func BuildExtraFiles(stage, gameName string, sizes Sizes) error {
 	if err := os.WriteFile(filepath.Join(root, "LICENSES", "README.txt"), []byte(licenceNotice), 0o644); err != nil {
 		return err
 	}
+	// The notices travel with the launcher binary, which is where the
+	// third-party code actually is (see notices.go).
+	if err := os.WriteFile(filepath.Join(root, "LICENSES", "THIRD_PARTY_NOTICES.md"), thirdPartyNotices, 0o644); err != nil {
+		return err
+	}
 	readme := fmt.Sprintf(readmeTemplate, gameName, gameName,
 		strings.Repeat("=", len(gameName)),
 		sizes.Download, sizes.Extracted, sizes.Recommended)
@@ -284,9 +289,13 @@ func readmeSize(gameName string) int64 {
 		strings.Repeat("=", len(gameName)), int64(0), int64(0), int64(0))))
 }
 
-const licenceNotice = `This package ships third-party components only if LICENSES/ contains
-their texts. The Kobra launcher binary is licensed separately; see
-launcher/ for its version.
+const licenceNotice = `This package embeds the Kobra launcher, which is MIT-licensed. The launcher's
+source, including its LICENSE, is at https://github.com/KobraRocks/kobra-game.
+
+THIRD_PARTY_NOTICES.md in this directory carries the full licence texts for every
+third-party component statically linked into launcher/launcher (BSD-3-Clause and
+Apache-2.0 code). Those notices are part of the distribution: keep this directory
+with the package when you redistribute it.
 `
 
 const readmeTemplate = `%s

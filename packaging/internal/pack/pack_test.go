@@ -421,6 +421,11 @@ func hashDir(t *testing.T, dir string) map[string]string {
 
 // TestEmbeddedSchemasMatchArchitecture keeps the vendored copy honest. It is the
 // reason a schema change cannot silently fail to reach the tool.
+//
+// It checks both directions. A stale file under packaging/internal/pack/schemas
+// is drift, and so is a newly published schema that never arrived here — the
+// first is caught by comparing what is embedded, the second only by walking the
+// published set. `make sync-schemas` is what repairs either.
 func TestEmbeddedSchemasMatchArchitecture(t *testing.T) {
 	archDir := filepath.Join("..", "..", "..", "architecture", "schemas")
 	if _, err := os.Stat(archDir); err != nil {
@@ -430,18 +435,33 @@ func TestEmbeddedSchemasMatchArchitecture(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	embedded := map[string]bool{}
 	for _, entry := range entries {
-		embedded, err := schemaFS.ReadFile("schemas/" + entry.Name())
+		embedded[entry.Name()] = true
+		got, err := schemaFS.ReadFile("schemas/" + entry.Name())
 		if err != nil {
 			t.Fatal(err)
 		}
-		onDisk, err := os.ReadFile(filepath.Join(archDir, entry.Name()))
+		want, err := os.ReadFile(filepath.Join(archDir, entry.Name()))
 		if err != nil {
-			t.Errorf("%s is embedded but missing from architecture/schemas", entry.Name())
+			t.Errorf("%s is embedded but missing from architecture/schemas; run `make sync-schemas` at the repository root to remove it", entry.Name())
 			continue
 		}
-		if !bytes.Equal(embedded, onDisk) {
-			t.Errorf("%s differs from architecture/schemas/%s; re-copy it", entry.Name(), entry.Name())
+		if !bytes.Equal(got, want) {
+			t.Errorf("%s differs from architecture/schemas/%s; run `make sync-schemas` at the repository root", entry.Name(), entry.Name())
+		}
+	}
+
+	archEntries, err := os.ReadDir(archDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range archEntries {
+		if entry.IsDir() || filepath.Ext(entry.Name()) != ".json" {
+			continue
+		}
+		if !embedded[entry.Name()] {
+			t.Errorf("architecture/schemas/%s is not embedded in packaging/internal/pack/schemas; run `make sync-schemas` at the repository root", entry.Name())
 		}
 	}
 }

@@ -10,15 +10,15 @@ import (
 // TestSchemaCopiesMatchThePublishedSet keeps the launcher's vendored schema
 // copies honest.
 //
-// architecture/schemas is the published set (FS Appendix B). The launcher keeps
-// three kinds of copy: launcher/schemas/ is the vendored set a publisher reads,
-// and two embedded copies exist because a copy under go:embed cannot reach
-// outside its package: config/schema/launcher.config.schema.json and
-// server/testschema/data-api.schema.json. Nothing compared them, so a schema
-// change could silently reach only one of the five locations.
+// architecture/schemas is the published set (FS Appendix B) and the only place a
+// schema is edited. The launcher keeps three directory copies — launcher/schemas/
+// is the vendored set a publisher reads, and two embed directories exist because
+// a copy under //go:embed cannot reach outside its package — plus one loose file,
+// launcher/port-deny-list.json. The packaging module has the same test for its
+// own copies.
 //
-// The packaging module has the same test for its own copies; this is the
-// launcher's half.
+// `make sync-schemas` regenerates every copy from the published set. This test is
+// what fails when someone forgets to run it: a script nobody runs is not a guard.
 func TestSchemaCopiesMatchThePublishedSet(t *testing.T) {
 	repoRoot := filepath.Join("..", "..", "..")
 	archDir := filepath.Join(repoRoot, "architecture", "schemas")
@@ -48,12 +48,34 @@ func TestSchemaCopiesMatchThePublishedSet(t *testing.T) {
 			}
 			want, err := os.ReadFile(filepath.Join(archDir, entry.Name()))
 			if err != nil {
-				t.Errorf("%s is vendored but missing from architecture/schemas", entry.Name())
+				t.Errorf("%s is vendored but missing from architecture/schemas; run `make sync-schemas` at the repository root to remove it", entry.Name())
 				continue
 			}
 			if !bytes.Equal(got, want) {
-				t.Errorf("%s differs from architecture/schemas/%s; re-copy it", entry.Name(), entry.Name())
+				t.Errorf("%s differs from architecture/schemas/%s; run `make sync-schemas` at the repository root", entry.Name(), entry.Name())
 			}
+		}
+	}
+
+	// One copy does not live in a schema directory. The port deny list is read by
+	// port_test.go and copied into a shipped game folder by `make package`,
+	// `make run-dev`, .e2e/run.sh and test/faultinject.sh. A drifted copy is still
+	// a valid document, so byte equality to the published set is the only thing
+	// standing between a stale list and the players who receive it.
+	for _, name := range []string{"port-deny-list.json"} {
+		path := filepath.Join("..", "..", name)
+		got, err := os.ReadFile(path)
+		if err != nil {
+			t.Errorf("read %s: %v", path, err)
+			continue
+		}
+		want, err := os.ReadFile(filepath.Join(archDir, name))
+		if err != nil {
+			t.Errorf("launcher/%s is shipped but missing from architecture/schemas", name)
+			continue
+		}
+		if !bytes.Equal(got, want) {
+			t.Errorf("launcher/%s differs from architecture/schemas/%s; run `make sync-schemas` at the repository root", name, name)
 		}
 	}
 
@@ -76,7 +98,7 @@ func TestSchemaCopiesMatchThePublishedSet(t *testing.T) {
 			continue
 		}
 		if !vendored[entry.Name()] {
-			t.Errorf("architecture/schemas/%s is not vendored into launcher/schemas", entry.Name())
+			t.Errorf("architecture/schemas/%s is not vendored into launcher/schemas; run `make sync-schemas` at the repository root", entry.Name())
 		}
 	}
 }

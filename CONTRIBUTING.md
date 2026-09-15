@@ -51,6 +51,14 @@ Run what you touched. CI runs all of it.
 matrix; run it if you touched a platform-specific file (`*_windows.go`,
 `*_unix.go`, a build tag).
 
+`architecture/schemas/` is the published schema set and the only place a schema is
+edited. The same bytes are vendored into five places, because `//go:embed` cannot
+reach outside its package and the packager ships the set to publishers — so edit
+the published file and run `make sync-schemas` from the repository root rather
+than copying by hand. `make check-schemas` reports drift
+without writing anything, and the drift tests in both modules fail in either
+direction if a copy is missed.
+
 ## How the code is laid out
 
 | Where | What lives there |

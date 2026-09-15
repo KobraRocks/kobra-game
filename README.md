@@ -149,12 +149,17 @@ toolchain: bumping Go or the compressor can change the output.
 
 ## Platform support
 
-| Platform | Build prefix | Status |
+| Platform | Build | Status |
 |---|---|---|
 | Linux (amd64, arm64) | yes | Tested. The fixture drive runs here. |
 | Windows (amd64, arm64) | yes | Compile-verified only. See Status. |
 | macOS (amd64, arm64) | yes | Compile-verified only. See Status. |
-| BSDs, Solaris/illumos | package-dependent | The updater and storage packages build; the sidecar lock does not implement process liveness for these, so treat them as unsupported. |
+| FreeBSD, OpenBSD | yes | The whole binary builds (checked) and the other BSDs share the same implementations; never executed. |
+| Solaris, illumos | partial | The updater and storage packages build, but the sidecar lock has no process-liveness implementation, so the launcher binary does not. Unsupported. |
+| plan9 | no | Does not build. |
+
+`make -C launcher cross` covers the six platforms the build matrix ships; the
+rest of the table is best-effort and worth checking before you rely on it.
 
 ## Contributing
 

@@ -138,15 +138,29 @@ first three are now closed.
 
 ### What building the harness found
 
-Two defects, both of which the harness caught rather than the review:
+Three defects, all of which later work caught rather than the original review:
 
-1. **The spec's quarantine did not exist.** §26.4 asserts that a crash between
+1. **The drain refusal was specified, implemented as a constructor, and never
+   wired.** §10.6 requires that a request arriving after the drain flag is set be
+   refused with `503` and `Connection: close`, and `kobraerr.Draining()` exists for
+   exactly that — but nothing read `Server.draining` except the watcher loop, so a
+   launcher that was shutting down kept serving normally until the listener
+   closed. Found while writing `docs/launcher-architecture.md`, whose draft
+   claimed the middleware rejected new work; the claim was false, so the code was
+   fixed instead of the sentence. `Server.drainGate` now sits inside `logging` and
+   outside the host gate, and `TestDrainRefusesNewRequests` asserts the 503, the
+   `Connection: close` on the wire (Go's client strips hop-by-hop headers, so the
+   test reads a raw socket), and that the refusal still carries the §13.7 header
+   set. This is the one finding the original review missed: `Draining` was
+   referenced by `kobraerr`'s own "walk every constructor" test, which is exactly
+   what hid it from a dead-symbol scan.
+2. **The spec's quarantine did not exist.** §26.4 asserts that a crash between
    `fsync` and `rename` leaves the temp file *quarantined*; nothing moved or
    cleaned it, so `.<slot>.json.tmp-<pid>-<seq>` accumulated in `data/saves/`
    forever. `Engine.QuarantineStrayTemps` now runs at startup, moves those files
    into `data/.trash-<ts>/<area>/` (never deletes them — FR-SHELL-4), and logs
    `save.recover` with `from=quarantine`.
-2. **My own injection ordering was wrong.** The first version injected the EXDEV
+3. **My own injection ordering was wrong.** The first version injected the EXDEV
    error *after* the real `os.Rename` had already moved the file, so the fallback
    ran with no source and failed for the wrong reason — a test that would have
    "proven" the fallback while exercising a different path. Both call sites now

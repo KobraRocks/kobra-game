@@ -343,9 +343,9 @@ func (s *Server) buildHandler() http.Handler {
 	s.api.Register(mux)
 
 	// 1. security headers (outermost: no gate below may answer without them),
-	// 2. panic recovery, 3. request id + logging, 4. host, 5. origin,
-	// 6. concurrency bound, then the mux (which applies the session and CSRF
-	// gates inside dataapi).
+	// 2. panic recovery, 3. request id + logging, 4. drain refusal (§10.6),
+	// 5. host, 6. origin, 7. concurrency bound, then the mux (which applies the
+	// session and CSRF gates inside dataapi).
 	//
 	// §10.3 numbers these as request-processing steps, but the §13.7 header set
 	// is a property of every response — including the 421 and 403 that the host
@@ -357,6 +357,7 @@ func (s *Server) buildHandler() http.Handler {
 	h = s.normalisePath(h)
 	h = s.originGate(h)
 	h = s.hostGate(h)
+	h = s.drainGate(h)
 	h = s.logging(h)
 	h = s.recovery(h)
 	h = s.securityHeaders(h)
@@ -570,6 +571,24 @@ func (s *Server) recovery(next http.Handler) http.Handler {
 // Panicked reports whether a handler panic was recovered during this process's
 // lifetime. main maps it to exit code 4 (§2.5).
 func (s *Server) Panicked() bool { return s.panicked.Load() }
+
+// drainGate is §10.6: once the drain has begun, a request that starts after it
+// is refused with 503 and Connection: close, which the shell treats as the
+// session ending. Requests already past this point are in flight and finish
+// normally.
+//
+// It sits inside logging so the refusal is still recorded, and outside the host
+// and origin gates so a draining launcher does no further work for anyone.
+func (s *Server) drainGate(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if s.draining.Load() {
+			w.Header().Set("Connection", "close")
+			kobraerr.WriteEnvelope(w, kobraerr.Draining())
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
 
 // logging is step 2: a request id plus structured access logging at debug
 // level. Tokens are never logged.

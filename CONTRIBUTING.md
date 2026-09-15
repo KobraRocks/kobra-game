@@ -120,7 +120,12 @@ behaviour change with neither will be sent back.
 
 ## Reporting a bug well
 
-Include:
+**Security flaws are not bugs for the public tracker.** Email
+[security@kobra.rocks](mailto:security@kobra.rocks) instead — see
+[SECURITY.md](SECURITY.md) for the threat model and what is already accepted
+behaviour.
+
+For everything else, include:
 
 - what you did, what happened, and what you expected;
 - the OS and architecture, and `launcher/launcher --version`;

@@ -49,10 +49,11 @@ Known gaps, stated plainly:
 | `packaging/` | `kobra-pack`, the publisher's toolchain: validates a game folder, builds reproducible `.zip` and `.tar.zst` archives, writes release manifests, verifies a published directory. Also a `dev` command that serves a source tree without packaging it. See `packaging/README.md`. |
 | `testgame/` | A complete fixture game — the conformance suite for both tools. The real packager builds it and the real launcher runs it, end to end, including an update. See `testgame/README.md`. |
 | `architecture/` | The specifications: functional, launcher, packaging, updater, plus the published JSON schemas in `architecture/schemas/`. |
-| `docs/` | Guides for people building on this: currently [authoring a game](docs/authoring-a-game.md). |
+| `docs/` | Guides for people building on this: [the index](docs/README.md), [authoring a game](docs/authoring-a-game.md), and [how the launcher serves your game](docs/launcher-architecture.md) for contributors to the internals. |
 | `.e2e/` | The launcher smoke drive: build, serve, exercise the API and the gates, drain. |
 | `.github/workflows/` | CI: the same make targets a contributor runs locally. |
 | `CONTRIBUTING.md` | How to set up, which gates to run, and the rules of the house. |
+| `SECURITY.md` | The threat model and how to report a vulnerability privately. |
 | `CODE-REVIEW.md` | The review record, including deferred items and why. |
 
 ## Quick start

@@ -12,3 +12,6 @@ contact_links:
   - name: Review record
     url: https://github.com/KobraRocks/kobra-game/blob/main/CODE-REVIEW.md
     about: Known gaps, deliberate deviations and what remains open.
+  - name: Security policy
+    url: https://github.com/KobraRocks/kobra-game/blob/main/SECURITY.md
+    about: The threat model, what is accepted behaviour, and where to report a vulnerability privately (not in a public issue).

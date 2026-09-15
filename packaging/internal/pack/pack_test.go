@@ -108,6 +108,36 @@ func TestConfigRejectsSlugThatDisagreesWithGameID(t *testing.T) {
 	}
 }
 
+// TestConfigRejectsUnparseableLauncherMin pins the publisher-side half of the
+// E37 rule.
+//
+// The schema requires launcher_min to match ^[0-9]+\.[0-9]+\.[0-9]+$, so a
+// conforming pipeline cannot produce a manifest whose floor the launcher is
+// unable to read — which is why Packaging spec §9.5 treats a manifest in the wild
+// that fails this as proof it came from a non-conforming build. Version fields in
+// this project are bare X.Y.Z: pre-release status is the release manifest's
+// `channel`, not a `-rc.1` suffix (VERSIONING.md).
+func TestConfigRejectsUnparseableLauncherMin(t *testing.T) {
+	for _, bad := range []string{"", "1.0.0-rc.1", "1.0", "v1.0.0", "1.0.0+build", "latest"} {
+		cfg := &Config{
+			Package: PackageConfig{Slug: "right", GameID: "com.kobra.right", GameName: "X", PkgRoot: "."},
+			Release: ReleaseConfig{
+				Release: "2026.09.1", GameVersion: "1.0.0", EngineVersion: "0.1.0",
+				SaveVersion: 1, LauncherMin: bad,
+			},
+			Platforms: map[string]PlatformConfig{"linux-x64": {GOOS: "linux", GOARCH: "amd64", Binary: "launcher", ArchivePlatform: "linux-x64"}},
+			Dir:       t.TempDir(),
+		}
+		err := cfg.Validate()
+		if err == nil {
+			t.Fatalf("Validate accepted launcher_min %q, which no launcher can read", bad)
+		}
+		if !strings.Contains(err.Error(), "launcher_min") {
+			t.Fatalf("launcher_min %q: error does not name the field: %v", bad, err)
+		}
+	}
+}
+
 // --- the pipeline, hermetically --------------------------------------------
 
 // fixture builds a minimal but complete pkgroot in a temp directory, with a

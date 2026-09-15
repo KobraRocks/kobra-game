@@ -1591,6 +1591,8 @@ The state machine is exhaustively tested with fault injection at each step (§26
 
 If the installed launcher is older than `launcher_min`, the release refuses to run and the launcher surfaces E29: *"This update needs a newer launcher."* with a download link. The current release remains runnable; the launcher never bricks itself.
 
+A `launcher_min` that cannot be read is a different failure and MUST NOT be reported as E29: the launcher is not old, the publisher's manifest is unreadable, and a download link cannot fix it. That case is refused as E37, *"The update manifest was not readable."*, and leaves the current release runnable (Updater spec §16.2, R16.5).
+
 ### 19.6 Rollback
 
 `game.old/` is retained until the new release has started successfully twice (FR-UPD-8). "Started successfully" means the launcher reached the `SERVE` state and the shell sent at least one heartbeat. Two successes guards against a release that starts but crashes on the first save.

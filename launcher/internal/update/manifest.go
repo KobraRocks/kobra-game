@@ -217,10 +217,28 @@ func FetchManifest(ctx context.Context, manifestURL string) (*Manifest, error) {
 // the one thing the user can do about it.
 const LauncherTooOldMessage = "This update needs a newer launcher."
 
+// ManifestUnreadableMessage is the exact E37 wording (Updater spec §16.2).
+//
+// An unreadable launcher_min is not the launcher being old. Reporting E29 there
+// would send the player looking for a launcher that does not exist and offer a
+// remedy that cannot work, when the fault is the publisher's document — so
+// R16.5 requires the two refusals to stay distinct. FetchManifest refuses such a
+// manifest before this point; this wording exists for the defence-in-depth
+// branch in MeetsLauncherMin.
+const ManifestUnreadableMessage = "The update manifest was not readable."
+
 // MeetsLauncherMin reports whether launcherVersion satisfies the manifest's
-// declared launcher_min (§19.5, FR-UPD-6). When it does not, the second return
-// value is the E29 wording to surface to the user, and the caller MUST refuse
-// to apply the update while leaving the current release runnable.
+// declared launcher_min (§19.5, FR-UPD-6). A nil return means the floor is met.
+// Otherwise the error carries the wording the caller MUST surface, and the
+// caller MUST refuse to apply the update while leaving the current release
+// runnable.
+//
+// The two refusals are deliberately distinct (Updater spec R16.5):
+//
+//   - E29, LauncherTooOldMessage: the launcher is older than a floor that was
+//     read. The remedy is a newer launcher, and the text names it.
+//   - E37, ManifestUnreadableMessage: the floor itself cannot be read, so there
+//     is nothing the player can do and the publisher owns the fix.
 //
 // Check takes no launcher version — §19.2 defines the check as comparing
 // release identifiers only — so this function exists to be called on the apply
@@ -231,9 +249,18 @@ const LauncherTooOldMessage = "This update needs a newer launcher."
 // the check closed: the launcher cannot prove it is new enough. An unparseable
 // launcher_min fails it closed too, for the opposite reason: a floor that cannot
 // be read cannot be proven satisfied (VERSIONING.md).
-func MeetsLauncherMin(m *Manifest, launcherVersion string) (bool, string) {
+func MeetsLauncherMin(m *Manifest, launcherVersion string) error {
+	err, _ := launcherMinRefusal(m, launcherVersion)
+	return err
+}
+
+// launcherMinRefusal returns the floor refusal together with the stable
+// diagnostics reason for it, or (nil, "") when the floor is met. Keeping the
+// error and the reason in one place is what stops GuardApply from having to
+// infer which refusal it received from the message text.
+func launcherMinRefusal(m *Manifest, launcherVersion string) (error, string) {
 	if m == nil || strings.TrimSpace(m.LauncherMin) == "" {
-		return true, ""
+		return nil, ""
 	}
 	// Fail closed on an unreadable floor. compareVersions orders an unparseable
 	// version as older than every numeric one, so without this check a malformed
@@ -241,12 +268,14 @@ func MeetsLauncherMin(m *Manifest, launcherVersion string) (bool, string) {
 	// unconditionally — the opposite of what a floor means. FetchManifest refuses
 	// such a manifest first; this keeps the gate safe for every other caller.
 	if _, ok := parseVersion(m.LauncherMin); !ok {
-		return false, LauncherTooOldMessage
+		return kobraerr.MalformedField("launcher_min", ManifestUnreadableMessage, nil),
+			"launcher_min_unreadable"
 	}
 	if compareVersions(launcherVersion, m.LauncherMin) >= 0 {
-		return true, ""
+		return nil, ""
 	}
-	return false, LauncherTooOldMessage
+	return kobraerr.IO(LauncherTooOldMessage, map[string]any{"reason": "launcher_min"}, nil),
+		"launcher_min"
 }
 
 // --- version helpers -------------------------------------------------------

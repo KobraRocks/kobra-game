@@ -863,6 +863,7 @@ All recoverable errors MUST be surfaced in-product with a plain-language cause a
 | E34 | Update cancelled by the user | Cancel request before the swap begins (Updater spec §12) | "The update was cancelled." | Keep the current release; leave no partial state; the install is untouched |
 | E35 | Update changed after confirmation | Marker/manifest reconciliation at apply time (Updater spec §9.2 step 5) | "The update changed since you confirmed it. Check for updates again." | Keep the current release; discard the recorded intent |
 | E36 | Update download failed | Network, HTTP status, or truncation (Updater spec §8, §16.2) | "The update could not be downloaded. The launcher may be offline." | Keep the current release; keep the update pending for a bounded number of retries |
+| E37 | Update manifest unreadable | Release manifest fetch, decode, or field validation fails, including an unreadable `launcher_min` (Updater spec §16.2) | "The update manifest was not readable." | Keep the current release runnable; report to the publisher |
 
 ---
 
@@ -1382,7 +1383,7 @@ Note: v1.0's `default_port: 0` and v2.0's FSA-oriented options are removed.
 | Autoinstaller details | FR-LNCH-1…8, 13.2, 13.3 |
 | Manifest schemas | FR-SCH-1…6, Appendix B |
 | Save robustness | FR-SAVE-1…20, 11.4, 11.5, 11.6 |
-| Error matrix | Section 16 (E1…E36) |
+| Error matrix | Section 16 (E1…E37) |
 | Performance | Section 17 |
 | Testing matrix | Section 19.2 |
 | Accessibility and i18n | FR-A11Y-1…6, FR-I18N-1…7 |

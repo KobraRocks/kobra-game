@@ -18,7 +18,7 @@ launcher floor in §4.3; the API version in FS FR-API-12.
 | **Content** | `game_version` | semver `X.Y.Z` | Which game wrote this save? | Stamped in save headers (diagnostic) |
 | **Save format** | `save_version` | integer | Can this build read that save? | **Gates loading** (FS §12.3, FR-SAVE-12) |
 | **Player API** | `api_version` | integer (`const 1`) | Does the shell understand this launcher? | **Shell refuses an unknown major** (FR-API-12, E22) |
-| **Tool** | launcher / packager version | bare semver `X.Y.Z` | Is this launcher new enough? | `launcher_min` (FR-UPD-6, E29) |
+| **Tool** | launcher / packager version | bare semver `X.Y.Z` | Is this launcher new enough? | `launcher_min` (FR-UPD-6, E29 / E37) |
 
 Where each is enforced:
 
@@ -123,6 +123,14 @@ rule is enforced by matching tests in both, with shared vectors:
 | `1.3.9` vs `1.4.0` | older | Numeric comparison |
 | `0.1.0-dev` vs `0.1.0` | **invalid → refuse** | Not bare `X.Y.Z`; a bare `go build` is unstamped |
 | `1.0.0-rc.1` vs `1.0.0` | **invalid → refuse** | Prerelease suffixes are not supported; use `channel` |
+
+A refusal on the *floor* side is reported as **E37** ("The update manifest was not
+readable."), not E29: the launcher is not old, the publisher's document is
+unreadable, and no launcher version fixes that. E29 is reserved for a launcher that
+is older than a floor that could be read. `kobra-pack` refuses to build a release
+whose `launcher_min` is not a bare three-component version, so a manifest that
+trips E37 in the wild did not come from a conforming pipeline (Updater spec §16.2,
+R16.5).
 
 `LauncherVersion` (`packaging/internal/pack/identity.go`) already refuses to read a
 version out of a launcher binary that does not print a bare semver, and the

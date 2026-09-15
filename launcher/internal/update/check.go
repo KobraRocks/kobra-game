@@ -2,8 +2,6 @@ package update
 
 import (
 	"context"
-
-	"kobragames.local/launcher/internal/kobraerr"
 )
 
 // CheckResult is the outcome of an update check (§19.2). It is what the
@@ -67,15 +65,16 @@ func Check(ctx context.Context, baseURL, installedRelease string) (CheckResult, 
 
 // GuardApply is the §19.5 gate the apply path calls between FetchManifest and
 // Verify. It refuses when the manifest demands a newer launcher, returning the
-// E29 wording in the error's Detail so the caller can show it verbatim. Check
-// cannot perform this gate itself — §19.2 gives it no launcher version and no
-// manifest — which is why the gate lives here and MeetsLauncherMin is
-// exported.
+// E29 wording in the error's Detail so the caller can show it verbatim, or the
+// E37 wording when the manifest's launcher_min cannot be read at all (Updater
+// spec R16.5 — the two must not be conflated). Check cannot perform this gate
+// itself — §19.2 gives it no launcher version and no manifest — which is why
+// the gate lives here and MeetsLauncherMin is exported.
 func GuardApply(m *Manifest, launcherVersion string) error {
-	ok, msg := MeetsLauncherMin(m, launcherVersion)
-	if ok {
+	err, reason := launcherMinRefusal(m, launcherVersion)
+	if err == nil {
 		return nil
 	}
-	logWarn("update.verify.fail", map[string]any{"release": m.Release, "reason": "launcher_min"})
-	return kobraerr.IO(msg, map[string]any{"reason": "launcher_min"}, nil)
+	logWarn("update.verify.fail", map[string]any{"release": m.Release, "reason": reason})
+	return err
 }

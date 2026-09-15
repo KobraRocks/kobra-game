@@ -942,6 +942,12 @@ func TestMeetsLauncherMin(t *testing.T) {
 		{"2.0.0", true},
 		{"1.3.9", false},
 		{"not-a-version", false},
+		// VERSIONING.md: version fields are bare X.Y.Z and an unparseable value
+		// fails closed. 2.0.0-rc.1 is refused because prerelease suffixes are not
+		// supported — `channel` carries pre-release — not because it sorts low.
+		{"0.1.0-dev", false},
+		{"2.0.0-rc.1", false},
+		{"1.4.0+build", false},
 	}
 	for _, tc := range tests {
 		ok, msg := MeetsLauncherMin(m, tc.version)
@@ -969,6 +975,72 @@ func TestMeetsLauncherMin(t *testing.T) {
 	}
 	if err := GuardApply(m, "1.4.0"); err != nil {
 		t.Fatalf("GuardApply refused a new-enough launcher: %v", err)
+	}
+}
+
+// TestMalformedLauncherMinCannotDisableTheFloor pins the fail-closed rule for the
+// floor itself, not only for the launcher's own version.
+//
+// compareVersions orders an unparseable version as older than every numeric one.
+// As an upper bound that is the safe direction, but launcher_min IS a floor: an
+// unreadable floor reads as older than any launcher and satisfies the gate
+// unconditionally, so one malformed character in a manifest would remove FR-UPD-6
+// altogether. FetchManifest refuses such a manifest first; this keeps the gate
+// safe for callers that construct a Manifest directly.
+func TestMalformedLauncherMinCannotDisableTheFloor(t *testing.T) {
+	for _, bad := range []string{"garbage", "1.0.0-rc.1", "1.x.0", "v", "."} {
+		m := goodManifest(0)
+		m.LauncherMin = bad
+		ok, msg := MeetsLauncherMin(m, "99.0.0")
+		if ok {
+			t.Fatalf("launcher_min %q disabled the floor for launcher 99.0.0", bad)
+		}
+		if msg != LauncherTooOldMessage {
+			t.Fatalf("launcher_min %q refusal message = %q, want the E29 wording", bad, msg)
+		}
+	}
+
+	// The documented leniency has to survive: an absent floor is not a requirement.
+	m := goodManifest(0)
+	m.LauncherMin = ""
+	if ok, _ := MeetsLauncherMin(m, "0.0.1"); !ok {
+		t.Fatal("an empty launcher_min should not gate the update")
+	}
+}
+
+// TestFetchManifestRejectsUnreadableLauncherMin closes the same hole one layer
+// up: a manifest whose floor cannot be read is refused as malformed, alongside
+// the existing checks on `release` and `schema`.
+func TestFetchManifestRejectsUnreadableLauncherMin(t *testing.T) {
+	manifestDoc := map[string]any{
+		"schema":         ReleaseManifestSchema,
+		"release":        "2026.10.1",
+		"launcher_min":   "1.0.0-rc.1",
+		"engine_version": "1.0.0",
+		"save_version":   1,
+		"total_size":     0,
+		"files":          []map[string]any{},
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(manifestDoc)
+	}))
+	defer srv.Close()
+
+	ctx := context.Background()
+	if _, err := FetchManifest(ctx, srv.URL); err == nil {
+		t.Fatal("FetchManifest accepted a manifest whose launcher_min cannot be read")
+	}
+
+	// A well-formed floor still passes, so the check is not simply refusing.
+	manifestDoc["launcher_min"] = "1.0.0"
+	if _, err := FetchManifest(ctx, srv.URL); err != nil {
+		t.Fatalf("FetchManifest refused a well-formed launcher_min: %v", err)
+	}
+
+	// And the documented leniency survives: an absent floor is not a requirement.
+	delete(manifestDoc, "launcher_min")
+	if _, err := FetchManifest(ctx, srv.URL); err != nil {
+		t.Fatalf("FetchManifest refused a manifest with no launcher_min: %v", err)
 	}
 }
 

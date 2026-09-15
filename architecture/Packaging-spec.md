@@ -453,6 +453,15 @@ header but never defines its relationship to `release`; the FS leaves the axis
 unowned, and this document assigns it to the publisher, which is the party the
 architecture places in control.)*
 
+Four axes are normative here because packaging owns them. Two more exist outside
+this document — `api_version` (FS FR-API-12) and the launcher's own version,
+which §4.3 turns into the `launcher_min` floor. `VERSIONING.md` at the repository
+root names all six together and records the repository's pre-1.0 policy: what a
+`0.y.z` tool version does and does not promise, that pre-release status is carried
+by `channel` rather than by a SemVer prerelease suffix, and that an unparseable
+version fails its gate closed. Where this document and `VERSIONING.md` disagree,
+this document wins.
+
 ### 4.5 How `game_version` Is Declared
 
 *(Technical decision — resolves the "where does the build read it from" half of the

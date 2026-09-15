@@ -51,6 +51,14 @@ Run what you touched. CI runs all of it.
 matrix; run it if you touched a platform-specific file (`*_windows.go`,
 `*_unix.go`, a build tag).
 
+`architecture/schemas/` is the published schema set and the only place a schema is
+edited. The same bytes are vendored into five places, because `//go:embed` cannot
+reach outside its package and the packager ships the set to publishers — so edit
+the published file and run `make sync-schemas` from the repository root rather
+than copying by hand. `make check-schemas` reports drift
+without writing anything, and the drift tests in both modules fail in either
+direction if a copy is missed.
+
 ## How the code is laid out
 
 | Where | What lives there |
@@ -75,7 +83,10 @@ mattered.
 1. **The specs are normative.** `architecture/*.md` describes required behaviour,
    and the code cites it (`§14.2`, `FR-SAVE-11`, `R10.6`) where the rule lives. If
    your change alters described behaviour, update the spec in the same pull
-   request. If code and spec disagree today, that disagreement *is* the bug.
+   request. If code and spec disagree today, that disagreement *is* the bug. For
+   anything touching a version number, read **`VERSIONING.md`** first: it names the
+   six axes, and version fields are bare `X.Y.Z` — pre-release is `channel`, not a
+   `-rc.1` suffix.
 2. **Every fixed bug gets a regression test**, named after the failure rather than
    the function (`TestApplyFailedSwapKeepsTheInstalledRelease`, not
    `TestApply3`). The test should fail on the old code.

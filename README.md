@@ -52,7 +52,10 @@ Known gaps, stated plainly:
 | `docs/` | Guides for people building on this: [the index](docs/README.md), [authoring a game](docs/authoring-a-game.md), and [how the launcher serves your game](docs/launcher-architecture.md) for contributors to the internals. |
 | `.e2e/` | The launcher smoke drive: build, serve, exercise the API and the gates, drain. |
 | `.github/workflows/` | CI: the same make targets a contributor runs locally. |
+| `Makefile` | Repository-level chores only: `make sync-schemas` and `make check-schemas`. The gates live in the module Makefiles. |
+| `scripts/` | `sync-schemas.sh`, which keeps `architecture/schemas/` and its vendored copies byte-identical. |
 | `CONTRIBUTING.md` | How to set up, which gates to run, and the rules of the house. |
+| `VERSIONING.md` | The six version axes, what a pre-1.0 tool version promises, and the rule that an unparseable version fails its gate closed. |
 | `SECURITY.md` | The threat model and how to report a vulnerability privately. |
 | `CODE-REVIEW.md` | The review record, including deferred items and why. |
 
@@ -122,9 +125,13 @@ code and spec disagree, one of them is wrong and the disagreement is the bug —
 several of the review's findings were exactly that. A change that alters
 behaviour the specs describe should update the spec in the same pull request.
 
-Published schemas live in `architecture/schemas/` and are copied into the two Go
-modules that need them at build time; tests in both modules fail if a copy drifts
-from the original, and `kobra-pack` refuses to build a package that violates one.
+Published schemas live in `architecture/schemas/`, which is the only place one is
+edited. The same bytes are vendored into the two Go modules, because `//go:embed`
+cannot reach outside its package, so edit the published file and run
+`make sync-schemas` from the repository root rather than copying by hand —
+`make check-schemas` reports drift without writing. Tests in both modules fail if
+a copy drifts from the original, in either direction, and `kobra-pack` refuses to
+build a package that violates one.
 
 ## Security model
 

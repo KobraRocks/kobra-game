@@ -67,8 +67,18 @@ func CheckIdentity(in IdentityInput, log *Logger) error {
 	check("save_version agreement", fmt.Sprint(in.Spec.SaveVersion), fmt.Sprint(in.Engine.SaveVersion))
 	check("game_version declared", "yes", yesNo(in.Spec.GameVersion != ""))
 	check("game_version well formed", "yes", yesNo(bareSemver.MatchString(in.Spec.GameVersion)))
-	check("launcher_min <= launcher", "yes",
-		yesNo(in.LauncherVer != "" && CompareSemver(in.Spec.LauncherMin, in.LauncherVer) <= 0))
+	// VERSIONING.md: an unparseable version fails its gate closed. Both inputs are
+	// validated before this point (config.go's semverRe for launcher_min,
+	// LauncherVersion for the binary), so ok=false means a caller bypassed that
+	// validation — which is exactly when a silently coerced comparison would have
+	// let a release through.
+	launcherMinOK := false
+	if in.LauncherVer != "" {
+		if c, ok := CompareSemver(in.Spec.LauncherMin, in.LauncherVer); ok && c <= 0 {
+			launcherMinOK = true
+		}
+	}
+	check("launcher_min <= launcher", "yes", yesNo(launcherMinOK))
 	check("slug matches game_id", lastSegment(in.Config.Package.GameID), in.Config.Package.Slug)
 
 	// §5.4: the engine's declared files must exist, and .wasm must be served as

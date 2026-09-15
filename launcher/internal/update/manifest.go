@@ -190,6 +190,18 @@ func FetchManifest(ctx context.Context, manifestURL string) (*Manifest, error) {
 	if !validRelease(m.Release) {
 		return nil, kobraerr.MalformedField("release", "The update manifest was not readable.", nil)
 	}
+	// §19.5/FR-UPD-6: launcher_min is a floor, so it has to be readable. A present
+	// but unparseable value is refused here rather than left to MeetsLauncherMin,
+	// because compareVersions orders an unparseable version as older than every
+	// numeric one — which for a floor reads as "always satisfied" and disables the
+	// gate outright. An absent launcher_min stays "no requirement", the leniency
+	// MeetsLauncherMin documents. VERSIONING.md: an unparseable version fails its
+	// gate closed.
+	if t := strings.TrimSpace(m.LauncherMin); t != "" {
+		if _, ok := parseVersion(t); !ok {
+			return nil, kobraerr.MalformedField("launcher_min", "The update manifest was not readable.", nil)
+		}
+	}
 	if m.TotalSize < 0 {
 		return nil, kobraerr.MalformedField("total_size", "The update manifest was not readable.", nil)
 	}
@@ -216,10 +228,20 @@ const LauncherTooOldMessage = "This update needs a newer launcher."
 // version is known. It is also safe to call on the check path once a manifest
 // has been fetched. A missing manifest or an empty launcher_min means "no
 // requirement" and satisfies the check. An unparseable launcher version fails
-// the check closed: the launcher cannot prove it is new enough.
+// the check closed: the launcher cannot prove it is new enough. An unparseable
+// launcher_min fails it closed too, for the opposite reason: a floor that cannot
+// be read cannot be proven satisfied (VERSIONING.md).
 func MeetsLauncherMin(m *Manifest, launcherVersion string) (bool, string) {
 	if m == nil || strings.TrimSpace(m.LauncherMin) == "" {
 		return true, ""
+	}
+	// Fail closed on an unreadable floor. compareVersions orders an unparseable
+	// version as older than every numeric one, so without this check a malformed
+	// launcher_min would read as older than the launcher and satisfy the gate
+	// unconditionally — the opposite of what a floor means. FetchManifest refuses
+	// such a manifest first; this keeps the gate safe for every other caller.
+	if _, ok := parseVersion(m.LauncherMin); !ok {
+		return false, LauncherTooOldMessage
 	}
 	if compareVersions(launcherVersion, m.LauncherMin) >= 0 {
 		return true, ""
@@ -232,6 +254,14 @@ func MeetsLauncherMin(m *Manifest, launcherVersion string) (bool, string) {
 // compareVersions compares two dotted numeric versions component by component,
 // treating a missing component as zero. It returns -1, 0 or +1. A version with
 // a non-numeric component compares as older than any numeric version.
+//
+// That last rule makes an unparseable value "older than everything", which is
+// the safe direction for an upper bound (the launcher's own version: it cannot
+// prove itself new enough) and the unsafe direction for a floor (launcher_min:
+// it would be satisfied unconditionally). This function is therefore only
+// defined for parseable input; a caller that can receive an unreadable floor
+// MUST gate on parseVersion first, as MeetsLauncherMin and FetchManifest do.
+// See VERSIONING.md, "an unparseable version fails its gate closed".
 func compareVersions(a, b string) int {
 	as, aok := parseVersion(a)
 	bs, bok := parseVersion(b)

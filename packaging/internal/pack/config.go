@@ -403,24 +403,50 @@ func lastSegment(id string) string {
 	return id
 }
 
-// CompareSemver orders two x.y.z strings.
-func CompareSemver(a, b string) int {
-	as := strings.Split(a, ".")
-	bs := strings.Split(b, ".")
+// CompareSemver orders two bare x.y.z versions, returning -1, 0 or +1.
+//
+// ok is false when either argument is not a bare three-component numeric version,
+// and the caller MUST then fail its gate closed. Versions in this project carry no
+// prerelease or build-metadata suffix — pre-release status is the release
+// manifest's `channel` — so a suffix is invalid input, not a lower version
+// (VERSIONING.md). Coercing an unparseable component to zero, which this function
+// used to do, made "1.0.0-rc.1" compare equal to "1.0.0" and silently pass a gate
+// the launcher refuses at run time.
+func CompareSemver(a, b string) (int, bool) {
+	as, aok := splitSemver(a)
+	bs, bok := splitSemver(b)
+	if !aok || !bok {
+		return 0, false
+	}
 	for i := 0; i < 3; i++ {
-		var ai, bi int
-		if i < len(as) {
-			ai, _ = strconv.Atoi(as[i])
-		}
-		if i < len(bs) {
-			bi, _ = strconv.Atoi(bs[i])
-		}
-		if ai != bi {
-			if ai < bi {
-				return -1
+		if as[i] != bs[i] {
+			if as[i] < bs[i] {
+				return -1, true
 			}
-			return 1
+			return 1, true
 		}
 	}
-	return 0
+	return 0, true
+}
+
+// splitSemver parses a bare x.y.z version into its three components. It reports
+// ok=false for anything else: a missing or extra component, an empty component, a
+// non-numeric component, a leading "v", or any prerelease or build suffix.
+func splitSemver(s string) ([3]int, bool) {
+	var out [3]int
+	parts := strings.Split(strings.TrimSpace(s), ".")
+	if len(parts) != 3 {
+		return out, false
+	}
+	for i, p := range parts {
+		if p == "" {
+			return out, false
+		}
+		n, err := strconv.Atoi(p)
+		if err != nil || n < 0 {
+			return out, false
+		}
+		out[i] = n
+	}
+	return out, true
 }

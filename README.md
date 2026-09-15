@@ -55,6 +55,7 @@ Known gaps, stated plainly:
 | `Makefile` | Repository-level chores only: `make sync-schemas` and `make check-schemas`. The gates live in the module Makefiles. |
 | `scripts/` | `sync-schemas.sh`, which keeps `architecture/schemas/` and its vendored copies byte-identical. |
 | `CONTRIBUTING.md` | How to set up, which gates to run, and the rules of the house. |
+| `VERSIONING.md` | The six version axes, what a pre-1.0 tool version promises, and the rule that an unparseable version fails its gate closed. |
 | `SECURITY.md` | The threat model and how to report a vulnerability privately. |
 | `CODE-REVIEW.md` | The review record, including deferred items and why. |
 

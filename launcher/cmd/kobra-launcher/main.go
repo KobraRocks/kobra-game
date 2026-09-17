@@ -438,7 +438,7 @@ func run() int {
 		return exitStartup
 	}
 	if fl.printURL {
-		fmt.Printf("%s/index.html#t=%s\n", srv.Origin(), token)
+		fmt.Printf("%s%s#t=%s\n", srv.Origin(), cfg.Server.EntryPath, token)
 		_ = os.Stdout.Sync()
 	} else if !fl.noOpen {
 		openBrowser(fl, cfg, srv.Origin(), token, log)
@@ -857,14 +857,16 @@ func browserReason(err error) string {
 
 // openBrowser launches the browser at the origin. An empty token means the
 // instance already owns the origin (the handoff case), where the existing
-// session model applies.
+// session model applies. The document opened is server.entry_path — normally
+// /index.html, or /editor for a game that ships an editor and wants to open it
+// directly.
 func openBrowser(fl flags, cfg config.Config, origin, token string, log *diagnostics.Logger) {
 	path, name, bErr := detectBrowser(fl, cfg)
 	if path == "" {
 		log.Warn("browser.none", map[string]any{"reason": browserReason(bErr)})
 		return
 	}
-	url := origin + "/index.html"
+	url := origin + cfg.Server.EntryPath
 	if token != "" {
 		url += "#t=" + token
 	}
@@ -872,5 +874,5 @@ func openBrowser(fl flags, cfg config.Config, origin, token string, log *diagnos
 		log.Warn("browser.launch.failed", map[string]any{"name": name})
 		return
 	}
-	log.Info("browser.launch", map[string]any{"name": name})
+	log.Info("browser.launch", map[string]any{"name": name, "entry": cfg.Server.EntryPath})
 }

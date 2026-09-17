@@ -12,8 +12,9 @@ import (
 
 // The launcher's static handler registers an explicit route allowlist
 // (launcher/internal/static/static.go): / and /index.html, /shell.js, /engine/,
-// /assets/ and /locales/. A file under game/ that matches none of those is
-// packaged, indexed, and then 404s in the browser. That is a build failure.
+// /assets/, /locales/ and /editor/. A file under game/ that matches none of
+// those is packaged, indexed, and then 404s in the browser. That is a build
+// failure.
 var (
 	gameRootServed = map[string]bool{"index.html": true, "shell.js": true}
 	// gameRootRequired is the subset of gameRootServed that must actually
@@ -24,7 +25,10 @@ var (
 	// release.manifest.json is exempt: the launcher reads it from disk for the
 	// update check and never serves it over HTTP.
 	gameRootUnserved = map[string]bool{"release.manifest.json": true}
-	servablePrefixes = []string{"engine/", "assets/", "locales/"}
+	// editor/ is optional: a game that ships no editor simply has no such
+	// directory, and the route 404s. It is listed here so that an editor the
+	// game *does* ship is served rather than packaged-and-404'd.
+	servablePrefixes = []string{"engine/", "assets/", "locales/", "editor/"}
 )
 
 var (

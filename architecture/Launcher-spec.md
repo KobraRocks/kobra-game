@@ -862,7 +862,8 @@ This check applies to **every** request, not just writes (FR-SRV-5). A cross-ori
 
 | Route class | Allowed methods |
 |-------------|----------------|
-| `/`, `/index.html`, `/assets/*`, `/engine/*` | `GET`, `HEAD` |
+| `/`, `/index.html`, `/shell.js`, `/assets/*`, `/engine/*`, `/locales/*` | `GET`, `HEAD` |
+| `/editor`, `/editor/*` | `GET`, `HEAD` |
 | `/mods/*` (when `serve_mods`) | `GET`, `HEAD` |
 | `/api/*` reads | `GET` |
 | `/api/save`, `/api/config`, `/api/mod` | `POST` |
@@ -924,6 +925,7 @@ A request that would fail step 8 must fail before step 9. A request that would f
 | `/assets/*` | `<GameFolder>/game/assets/` | Per-manifest cache policy |
 | `/mods/<id>/assets/*` | `<GameFolder>/data/mods/<id>/assets/` | Only when `serve_mods` and the mod is enabled |
 | `/locales/*` | `<GameFolder>/game/locales/` | `no-cache` |
+| `/editor`, `/editor/*` | `<GameFolder>/game/editor/` (`/editor` → `editor/index.html`) | `no-cache` for the document, asset policy for the subtree; `404` when the game ships no editor |
 
 Static serving never reaches `data/saves/`, `data/config/`, or the launcher binary itself. A request for `/data/saves/slot1.json` does not match any static prefix and is not a data API route either; it is a `404`.
 
@@ -1020,11 +1022,11 @@ X-Content-Type-Options: nosniff
 Referrer-Policy: no-referrer
 X-Frame-Options: DENY
 Cross-Origin-Opener-Policy: same-origin
-Cross-Origin-Embedder-Policy: require-corp   # only when SharedArrayBuffer is needed
+Cross-Origin-Embedder-Policy: <server.cross_origin_embedder_policy>   # omitted when empty
 Content-Security-Policy: <configured>
 ```
 
-The CSP default is the strict policy in FR-SRV-17. `Cross-Origin-Embedder-Policy` is set conditionally because it breaks embedding of cross-origin images and fonts, which the engine may legitimately use for non-SAB builds.
+The CSP default is the strict policy in FR-SRV-17. `Cross-Origin-Embedder-Policy` is set from `server.cross_origin_embedder_policy` (empty | `require-corp` | `credentialless`) and omitted entirely when empty, because it breaks embedding of any cross-origin subresource that does not opt in with CORP or CORS. With COOP `same-origin` already present, either non-empty value makes the origin cross-origin isolated, which is what `SharedArrayBuffer` and WebAssembly threads require (FR-SRV-16a).
 
 ---
 
@@ -2040,7 +2042,7 @@ When the sidecar falls back to `<GameFolder>/.kobra/` (§6.3), two machines runn
 
 ### 27.6 CSP for `SharedArrayBuffer`
 
-`Cross-Origin-Embedder-Policy: require-corp` is set conditionally (FR-SRV-16). The engine team has not finalised whether SAB is required. **Deferred** until the engine's threading model is fixed.
+`Cross-Origin-Embedder-Policy` is publisher configuration (FR-SRV-16) and is implemented as `server.cross_origin_embedder_policy`. **Resolved:** an engine that needs `SharedArrayBuffer` sets `require-corp`; the shell verifies `crossOriginIsolated` at boot and fails into E2 with a plain-language cause if the publisher did not (FR-SRV-16a).
 
 ### 27.7 Update Channel Configuration
 
@@ -2247,6 +2249,8 @@ The schema is normative; this is a reading guide.
 - `server.csrf_required` — fixed `true`.
 - `server.drain_timeout_seconds` — default 15.
 - `server.serve_mods` — serve enabled mods at `/mods/*` read-only.
+- `server.cross_origin_embedder_policy` — `""` (default, no header) | `require-corp` | `credentialless`. Any other value is rejected at load. Non-empty makes the origin cross-origin isolated (FR-SRV-16a).
+- `server.entry_path` — the document the launcher opens and `--print-url` prints: `/`, `/index.html`, or `/editor` (FR-LNCH-9). Any other value is rejected at load.
 - `server.csp` — override the default strict policy. **Changing this weakens a security control** and requires a spec revision.
 - `data_api.max_request_bytes` — default 64 MiB.
 - `data_api.writes_per_minute` / `bytes_per_minute` — per-session quotas.

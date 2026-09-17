@@ -1,6 +1,6 @@
 // Package static serves the read-only game tree: /, /shell.js, /engine/*,
-// /assets/*, /locales/* and, when serve_mods is on, /mods/<id>/assets/*
-// (Launcher spec §13).
+// /assets/*, /locales/*, /editor/* and, when serve_mods is on,
+// /mods/<id>/assets/* (Launcher spec §13).
 //
 // Static serving never reaches data/saves/, data/config/ or the launcher binary
 // itself: a request for /data/saves/slot1.json matches no static prefix and is
@@ -76,6 +76,8 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("/engine/", h.handleEngine)
 	mux.HandleFunc("/assets/", h.handleAssets)
 	mux.HandleFunc("/locales/", h.handleLocales)
+	mux.HandleFunc("/editor", h.handleEditor)
+	mux.HandleFunc("/editor/", h.handleEditor)
 	mux.HandleFunc("/mods/", h.handleMods)
 }
 
@@ -102,6 +104,28 @@ func (h *Handler) handleEngine(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.serveGame(w, r, full, policyImmutable)
+}
+
+// handleEditor serves the editor entry document and its subtree (§13.1).
+// "/editor" and "/editor/" serve game/editor/index.html; anything deeper
+// resolves under game/editor/ with the same confinement as /engine/ and
+// /assets/. A package that ships no editor gets a clean 404, so the route costs
+// nothing to a game that does not use it.
+//
+// The editor is an ordinary static document: it inherits the session cookie of
+// whatever established a session on this origin, reads the non-HttpOnly
+// kobra_csrf cookie, and is otherwise subject to the same gates as the game.
+func (h *Handler) handleEditor(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/editor" || r.URL.Path == "/editor/" {
+		h.serveGame(w, r, filepath.Join(h.root.GameDir, "editor", "index.html"), policyNoCache)
+		return
+	}
+	full, ok := h.resolveUnder(h.root.GameDir, r.URL.Path)
+	if !ok {
+		h.notFound(w, r)
+		return
+	}
+	h.serveGame(w, r, full, policyAssets)
 }
 
 func (h *Handler) handleAssets(w http.ResponseWriter, r *http.Request) {

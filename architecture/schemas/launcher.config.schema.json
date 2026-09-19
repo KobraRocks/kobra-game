@@ -135,6 +135,24 @@
           "maximum": 120,
           "default": 15,
           "description": "FR-SRV-20. Seconds allowed for in-flight atomic writes to finish during shutdown."
+        },
+        "cross_origin_embedder_policy": {
+          "enum": [
+            "",
+            "require-corp",
+            "credentialless"
+          ],
+          "default": "",
+          "description": "FR-SRV-16. Cross-Origin-Embedder-Policy for the game origin. Empty sends no header, which is the default and preserves embedding of cross-origin images and fonts. require-corp makes the origin cross-origin isolated, which is the condition SharedArrayBuffer and WebAssembly threads require; credentialless is the weaker alternative. Only set it when the engine needs cross-origin isolation, because it breaks any cross-origin subresource that does not opt in with CORP or CORS."
+        },
+        "entry_path": {
+          "enum": [
+            "/",
+            "/index.html",
+            "/editor"
+          ],
+          "default": "/index.html",
+          "description": "FR-LNCH-9. The document the launcher opens on start and the path --print-url prints. It must be a path the static handler serves: the root document, its explicit alias, or the editor route (FR-AST-16). Any other value is rejected rather than left silently inert."
         }
       }
     },

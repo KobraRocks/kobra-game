@@ -27,6 +27,30 @@ and a fixture game; `README.md` has the real overview.
 | `Makefile` (root) | Repo-level chores only — `help`, `sync-schemas`, `check-schemas`. Gates are per module. |
 | `scripts/` | `sync-schemas.sh`, which the root schema targets run. |
 
+`games/` exists on disk but is **git-ignored** — see below; it is not in the table
+because no clone of this repository contains it.
+
+## Local games
+
+`games/` holds in-development games that use this toolchain. It is deliberately
+untracked: each game is its own repository, checked out here only so the packager,
+launcher and updater can be driven against it from inside the workspace. The agent
+file sandbox is rooted at this repo, so a game *outside* it is read-only in
+practice; `games/` is how a game stays writable.
+
+Consequences to keep in mind:
+
+- **Nothing in `games/` is part of this repository.** Do not add it to git, do not
+  make repo gates depend on it, and expect `git clean -xfd` to delete it.
+- **A game sits one level deeper than `testgame/` does.** Anything copied from the
+  fixture needs its relative paths fixed: the `REPO` line in `testgame/Makefile`
+  becomes `$(HERE)../..`, and `pkg.toml`'s `binary_dir` / `deny_list` become
+  `../../launcher/dist` and `../../launcher/port-deny-list.json`.
+- `testgame/` remains the conformance fixture and the template to copy. A game in
+  `games/` is a consumer of the toolchain, never a substitute for the fixture.
+- Build output lands in the game's own `games/<name>/dist/`, which is already
+  covered by the `games/` ignore rule.
+
 ## Commands
 
 The root `Makefile` carries **only repository-level schema chores**. Every gate

@@ -399,7 +399,8 @@ Loopback HTTP is reachable by any process on the machine, including a user's bro
 - **FR-SRV-13.** MIME types MUST be explicit rather than guessed where it matters: `.wasm` → `application/wasm`, `.js`/`.mjs` → `text/javascript`, `.json` → `application/json`, `.html` → `text/html`, `.ogg` → `audio/ogg`, `.png` → `image/png`, `.webp` → `image/webp`. An unknown extension is served as `application/octet-stream` with `Content-Disposition: attachment` so that unexpected content cannot execute in the game's origin.
 - **FR-SRV-14.** The server MUST support HTTP `Range` requests (`206 Partial Content`, `Accept-Ranges: bytes`, single range) for audio and video seeking (Section 17.2), and MUST return `416` for unsatisfiable ranges.
 - **FR-SRV-15.** `ETag` and `Last-Modified` MUST be emitted; `If-None-Match`/`If-Modified-Since` MUST be honoured with `304`. `Cache-Control` policy: `no-cache` for `index.html`, `shell.js`, `/api/data/*`, and all `*.manifest.json`; `public, max-age=31536000, immutable` for `engine/*` and content-addressed asset paths (Section 9.4).
-- **FR-SRV-16.** Responses MUST carry `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY`, and `Cross-Origin-Opener-Policy: same-origin`. `Cross-Origin-Embedder-Policy` is set to `require-corp` only when the build needs `SharedArrayBuffer`.
+- **FR-SRV-16.** Responses MUST carry `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY`, and `Cross-Origin-Opener-Policy: same-origin`. `Cross-Origin-Embedder-Policy` is controlled by `server.cross_origin_embedder_policy`: empty (the default) sends no COEP header, `require-corp` and `credentialless` send that value. It is set only when the engine needs cross-origin isolation, because COEP breaks the embedding of any cross-origin subresource that does not opt in with CORP or CORS. Together with COOP `same-origin`, either non-empty value makes the origin cross-origin isolated, which is the condition `SharedArrayBuffer` — and therefore WebAssembly threads — requires (FR-SRV-16a).
+- **FR-SRV-16a (cross-origin isolation is declared, not assumed).** When an engine manifest lists `threads` or `shared-array-buffer` in `required_features`, the shell MUST verify `crossOriginIsolated === true` at boot and MUST fail with a plain-language cause (error matrix E2) if it is false, rather than failing at first use of the feature. Because the header set is publisher configuration, the failure mode this prevents is a misconfigured `cross_origin_embedder_policy` producing an unexplained engine start failure deep inside the render loop.
 - **FR-SRV-17.** A strict `Content-Security-Policy` MUST be sent for the game origin: `default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' blob: data:; media-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'none'`. This enforces the offline-first non-goal: the game cannot reach the network, and an installed mod cannot exfiltrate data over the network through the page.
 
 ### 7.5 Lifecycle
@@ -516,6 +517,7 @@ An optional FSA path was considered and rejected: it would preserve the permissi
 
 - **FR-AST-14.** In development builds only, the server MAY implement `GET /__kobra/watch` (Server-Sent Events) and emit `asset-changed` events using OS filesystem notifications, filtered to the served roots. A `lastModified` polling fallback is specified for platforms without notification APIs, at a 1000 ms interval and only while a debug overlay is open.
 - **FR-AST-15.** Hot-reload MUST be disabled in release builds; the release flag is compiled into `shell.js` by the build, not read from a runtime-configurable file, so it cannot be enabled by editing an asset.
+- **FR-AST-16 (editor route).** The server MUST serve a game's editor, when it ships one, at `/editor` and `/editor/*`, resolved under `game/editor/` with the same path confinement and symlink re-checking as `/engine/*` and `/assets/*` (§13.2, §13.3). `/editor` and `/editor/` MUST serve `game/editor/index.html`. A package with no `game/editor/` directory MUST answer `404` on the route rather than failing to start, so the route costs nothing to a game that does not use it. The editor document is subject to the same gates, headers and session model as the root document; it is not an unauthenticated surface, and it inherits any session established on the origin through the ordinary cookies.
 
 ---
 
@@ -729,6 +731,7 @@ On load, in order:
 - **FR-LNCH-6.** A browser is a candidate only if its major version is ≥ the minimum in Section 15.1.
 - **FR-LNCH-7.** If no candidate is found: on Windows, offer to open the Microsoft Store page for Edge; on macOS/Linux, print the install command for the distro and offer to open the download page in the default browser. The launcher MUST NOT launch a browser known to be unsupported only to have it fail.
 - **FR-LNCH-8.** If the user's chosen browser is behind a proxy or a `--user-data-dir` policy that breaks loopback, the launcher MUST detect "browser opened but no heartbeat within 20 s" and surface a diagnostic with the log path.
+- **FR-LNCH-9 (entry document).** The document the launcher opens on start, and the path `--print-url` prints, MUST come from `server.entry_path` (default `/index.html`) so that a publisher can open the game or its editor directly. The value MUST be validated against the set of documents the static handler actually serves (`/`, `/index.html`, `/editor`); any other value MUST be rejected at config load rather than accepted and left silently inert. A game that ships no editor MUST NOT be able to configure `/editor` into a broken launch by accident — it fails at load, naming the file.
 
 ### 13.5 Diagnostics
 
@@ -1380,7 +1383,7 @@ Note: v1.0's `default_port: 0` and v2.0's FSA-oriented options are removed.
 | Review #6 — checksums vs modding | FR-AST-4…8 |
 | Review #7 — permission gesture required | Removed with FSA (FR-SHELL-1 forbids storage APIs) |
 | Review #8 — no update mechanism | FR-UPD-1…9, Section 12 |
-| Autoinstaller details | FR-LNCH-1…8, 13.2, 13.3 |
+| Autoinstaller details | FR-LNCH-1…9, 13.2, 13.3 |
 | Manifest schemas | FR-SCH-1…6, Appendix B |
 | Save robustness | FR-SAVE-1…20, 11.4, 11.5, 11.6 |
 | Error matrix | Section 16 (E1…E37) |

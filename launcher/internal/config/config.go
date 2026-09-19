@@ -37,6 +37,72 @@ type ServerConfig struct {
 	ServeMods                bool   `json:"serve_mods"`
 	CSRFRequired             bool   `json:"csrf_required"`
 	DrainTimeoutSeconds      int    `json:"drain_timeout_seconds"`
+	// CrossOriginEmbedderPolicy is FR-SRV-16's conditional COEP. Empty means
+	// "send no COEP header", which is the default and preserves every existing
+	// game's behaviour. "require-corp" makes the origin cross-origin isolated,
+	// which is what SharedArrayBuffer and WebAssembly threads require;
+	// "credentialless" is the weaker alternative. Enabling either means every
+	// cross-origin subresource the page uses must opt in with CORP or CORS.
+	CrossOriginEmbedderPolicy string `json:"cross_origin_embedder_policy,omitempty"`
+	// EntryPath is the document the launcher opens on start (§4 step 14) and the
+	// path --print-url prints, so a publisher can open the game or its editor
+	// directly. It MUST be one of EntryDocuments: a value the static handler
+	// does not serve would leave the key silently inert, which is the failure
+	// ValidateEntryPath exists to remove.
+	EntryPath string `json:"entry_path,omitempty"`
+}
+
+// entryDocuments are the documents the launcher may be told to open. Each must be
+// a path the static handler actually serves (launcher/internal/static): the root
+// document, its explicit alias, and the editor (§13.1).
+var entryDocuments = []string{"/", "/index.html", "/editor"}
+
+// DefaultEntryPath is the entry document when the config does not name one.
+const DefaultEntryPath = "/index.html"
+
+// EntryDocuments returns the paths server.entry_path may take.
+func EntryDocuments() []string {
+	out := make([]string, len(entryDocuments))
+	copy(out, entryDocuments)
+	return out
+}
+
+// ValidateEntryPath rejects an entry_path the launcher would not serve, and
+// normalises an empty value to the default.
+func ValidateEntryPath(p string) (string, error) {
+	if p == "" {
+		return DefaultEntryPath, nil
+	}
+	for _, ok := range entryDocuments {
+		if p == ok {
+			return p, nil
+		}
+	}
+	return "", fmt.Errorf("server.entry_path must be one of %v", entryDocuments)
+}
+
+// CrossOriginEmbedderPolicies are the accepted COEP values. An empty string is
+// the default and means "send no header".
+var CrossOriginEmbedderPolicies = []string{"require-corp", "credentialless"}
+
+// ValidateCOEP rejects any COEP value the header must not carry.
+func ValidateCOEP(v string) error {
+	if v == "" {
+		return nil
+	}
+	for _, ok := range CrossOriginEmbedderPolicies {
+		if v == ok {
+			return nil
+		}
+	}
+	return fmt.Errorf("server.cross_origin_embedder_policy must be empty, require-corp or credentialless")
+}
+
+// Isolated reports whether this configuration makes the game origin
+// cross-origin isolated, which is the condition SharedArrayBuffer requires.
+func (s ServerConfig) Isolated() bool {
+	return s.CrossOriginEmbedderPolicy == "require-corp" ||
+		s.CrossOriginEmbedderPolicy == "credentialless"
 }
 
 func (s ServerConfig) IdleTimeout() time.Duration {
@@ -148,6 +214,7 @@ func Default() Config {
 			ServeMods:                true,
 			CSRFRequired:             true,
 			DrainTimeoutSeconds:      15,
+			EntryPath:                DefaultEntryPath,
 		},
 		BrowserPreference: []string{"chrome", "msedge", "brave", "opera"},
 		MinBrowserVersion: MinBrowserVersion{Chrome: 105, Edge: 105, Opera: 91, Brave: "1.45"},
@@ -255,6 +322,14 @@ func (c *Config) applyDerived() error {
 	}
 	if !c.Server.CSRFRequired {
 		return fmt.Errorf("server.csrf_required must be true")
+	}
+	entry, err := ValidateEntryPath(c.Server.EntryPath)
+	if err != nil {
+		return err
+	}
+	c.Server.EntryPath = entry
+	if err := ValidateCOEP(c.Server.CrossOriginEmbedderPolicy); err != nil {
+		return err
 	}
 	if !c.Update.ProtectDataDir {
 		return fmt.Errorf("update.protect_data_dir must be true")

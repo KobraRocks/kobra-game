@@ -24,3 +24,10 @@ testgame/.kobra-dev/
 
 # The publisher toolchain binary
 packaging/kobra-pack
+
+# Local games built with this toolchain. Deliberately ignored: each game is its
+# own repository, checked out here so the packager, launcher and updater can be
+# driven against it in-tree. Nothing under games/ is part of this repo, so
+# `git clean -xfd` WILL delete it — remove the -x if you want it kept.
+# See "Local games" in AGENTS.md for the layout a game here must follow.
+games/

@@ -639,6 +639,12 @@ func (s *Server) originGate(next http.Handler) http.Handler {
 
 // securityHeaders is step 5: every response, including error responses,
 // carries the §13.7 header set.
+//
+// COEP is conditional (FR-SRV-16): it is sent only when
+// server.cross_origin_embedder_policy is set, because cross-origin isolation
+// breaks the embedding of cross-origin images and fonts. Together with COOP
+// same-origin it makes the origin cross-origin isolated, which is the condition
+// SharedArrayBuffer — and therefore WebAssembly threads — requires.
 func (s *Server) securityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h := w.Header()
@@ -646,6 +652,9 @@ func (s *Server) securityHeaders(next http.Handler) http.Handler {
 		h.Set("Referrer-Policy", "no-referrer")
 		h.Set("X-Frame-Options", "DENY")
 		h.Set("Cross-Origin-Opener-Policy", "same-origin")
+		if coep := s.cfg.Server.CrossOriginEmbedderPolicy; coep != "" {
+			h.Set("Cross-Origin-Embedder-Policy", coep)
+		}
 		h.Set("Content-Security-Policy", s.cfg.CSP())
 		next.ServeHTTP(w, r)
 	})

@@ -2038,7 +2038,9 @@ When the sidecar falls back to `<GameFolder>/.kobra/` (§6.3), two machines runn
 
 ### 27.5 Mod Archive Extraction
 
-`POST /api/mod` with `archive_bytes` is specified but the archive format is not fixed. The likely choice is the same `.tar.zst` used by updates. **Deferred** until the modder beta clarifies what format authors actually produce.
+**Resolved.** The archive is the `.tar.zst` §19 already uses, holding the mod's own file tree with **no wrapper directory**: `mod.manifest.json` at the archive root and everything else under `assets/`, because `installModLocked` extracts into `data/mods/<id>/` and that is where the consumer reads the manifest (FR-AST-12, §03.6's anatomy). A single top-level directory is therefore **not** stripped — tooling archives the contents, not the folder. Entries are validated before anything is written: a relative path that stays under the destination; a regular file or a directory; no symlink, hardlink, device or FIFO; no reserved device name; and the expanded size bounded by the request ceiling (§19.3, FR-UPD-5). `internal/storage/archive_test.go` pins the layout and every refusal.
+
+An archive whose root carries no `mod.manifest.json` — the wrapped-folder mistake — installs and then does nothing, because the extractor is a layout-agnostic unpacker and the mod never appears in `ReadMods`. Refusing it belongs in `installModLocked` and is a behaviour change with a `launcher_min` cost, so it is recorded here rather than made.
 
 ### 27.6 CSP for `SharedArrayBuffer`
 

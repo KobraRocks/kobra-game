@@ -62,3 +62,9 @@ var devRecoveryOutcome string
 // hasDevGameDir reports whether the override flag was supplied. It is defined
 // here because only a dev build has the flag.
 func hasDevGameDir() bool { return devGameDir != "" }
+
+// devBuild reports that this binary was built with the kobra_dev tag. It is the
+// signal a served page reads to offer its development sidebar, and it is true
+// for every dev build rather than only when --game-dir was passed: a developer
+// serving an installed folder is still running a development binary.
+func devBuild() bool { return true }

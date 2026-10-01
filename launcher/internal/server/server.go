@@ -52,6 +52,11 @@ type Options struct {
 	// BrowserInfo is the accepted browser, surfaced in diagnostics.
 	BrowserName    string
 	BrowserVersion string
+	// Dev marks a kobra_dev build. It is reported in the diagnostics payload so
+	// a served page can offer development affordances, and it is false in every
+	// release build — there is no flag and no request that can turn it on
+	// (FR-LNCH-1, FR-SRV-9).
+	Dev bool
 	// OnFirstHeartbeat, when set, runs once after the first heartbeat of this
 	// process. It is the hook rollback retention needs (Updater spec R15.3):
 	// "started successfully" means the launcher reached SERVE *and* the shell
@@ -106,6 +111,8 @@ type Server struct {
 	browserName    string
 	browserPath    string
 	browserVersion string
+	// dev is true only in a kobra_dev build; it is copied into diagnostics.
+	dev bool
 
 	// firstHeartbeat guards the OnFirstHeartbeat hook. It is separate from
 	// lastSeen because lastSeen is also written by Goodbye.
@@ -139,6 +146,7 @@ func New(opts Options) *Server {
 		baseCancel:     cancel,
 		browserName:    opts.BrowserName,
 		browserVersion: opts.BrowserVersion,
+		dev:            opts.Dev,
 
 		onFirstHeartbeat: opts.OnFirstHeartbeat,
 
@@ -299,6 +307,8 @@ func (s *Server) Diagnostics() apitypes.DiagnosticsPayload {
 		LogTail:           s.log.Tail(200),
 		SidecarKind:       s.root.SidecarKind,
 		SidecarFallback:   s.root.SidecarFallbackReason,
+		// Omitted when false, so "no dev field" is the release answer.
+		Dev: s.dev,
 	}
 	if s.browserName != "" {
 		payload.Browser = map[string]string{

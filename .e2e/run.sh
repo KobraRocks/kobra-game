@@ -200,6 +200,9 @@ checkcontains "diagnostics has origin" '"origin":"http://127.0.0.1:18771"' "$DIA
 checkcontains "diagnostics has log_tail" '"log_tail"' "$DIAG"
 case "$DIAG" in *"$ROOT"*) echo "  FAIL  diagnostics leaked a filesystem path"; fail=$((fail+1));; *) echo "  PASS  diagnostics has no filesystem path"; pass=$((pass+1));; esac
 case "$DIAG" in *"$(whoami)"*) echo "  FAIL  diagnostics leaked the OS username"; fail=$((fail+1));; *) echo "  PASS  diagnostics has no OS username"; pass=$((pass+1));; esac
+# §21.4/FR-LNCH-1: this is a *release* build, so it must not report `dev` at all.
+# "Absent" is the release answer; the dev build's half is asserted in step 17.
+case "$DIAG" in *'"dev":'*) echo "  FAIL  a release payload carried a dev field"; fail=$((fail+1));; *) echo "  PASS  release payload omits dev"; pass=$((pass+1));; esac
 
 # Drain: SIGTERM and confirm exit 0 and lock removal.
 kill -TERM $PID
@@ -279,14 +282,30 @@ if [ -x "$TESTDIR/launcher-dev" ]; then
   cat > "$TESTDIR/OtherGame/launcher/launcher.config.json" <<'JSON'
 {"schema":"kobra.launcher-config/1","game_id":"com.kobra.overridetest","game_name":"Override","port":{"base":19750,"span":10,"require_confirmation":false}}
 JSON
-  XDG_STATE_HOME="$TESTDIR/state-dev" "$TESTDIR/launcher-dev" --game-dir "$TESTDIR/OtherGame" --yes --no-open --port 19761 > "$TESTDIR/dev.log" 2>&1 &
+  XDG_STATE_HOME="$TESTDIR/state-dev" "$TESTDIR/launcher-dev" --game-dir "$TESTDIR/OtherGame" --yes --no-open --print-url --port 19761 > "$TESTDIR/dev.log" 2>&1 &
   DEVPID=$!
   for i in $(seq 1 60); do curl -s -m 1 -o /dev/null http://127.0.0.1:19761/__kobra/health 2>/dev/null && break; sleep 0.1; done
   PROBE=$(curl -s -m 2 http://127.0.0.1:19761/__kobra/probe)
   checkcontains "dev build serves the overridden folder" '"game_id":"com.kobra.overridetest"' "$PROBE"
   checkcontains "dev build announces itself" "development build" "$(cat "$TESTDIR/dev.log")"
-  kill $DEVPID 2>/dev/null; wait $DEVPID 2>/dev/null || true
-  rm -rf "$TESTDIR/OtherGame" "$TESTDIR/state-dev" "$TESTDIR/dev.log" "$TESTDIR/launcher-dev"
+
+  # §21.4: `dev` is the only development signal a served page can trust, and the
+  # game's M3.5 exit criterion rests on it — offered in a `make play` run, absent
+  # from a packaged one. Asserted over the real route, the way the shell reads it.
+  #
+  # This section runs after `set -e` above, and the URL is the *second* line of
+  # the dev log (the build banner is first), so every step is guarded: a missing
+  # token or a failed exchange must land in `checkcontains`, not abort the suite.
+  DEVURL=$(grep -m1 '^http://' "$TESTDIR/dev.log" 2>/dev/null | tr -d '\r' || true)
+  DEVJAR=$TESTDIR/dev-cookies.txt
+  rm -f "$DEVJAR"
+  DEVBODY=$(curl -s -m 2 -c "$DEVJAR" -X POST -H 'Content-Type: application/json' -H 'Origin: http://127.0.0.1:19761' \
+    -d "{\"token\":\"${DEVURL#*#t=}\"}" http://127.0.0.1:19761/__kobra/session || true)
+  DEVCSRF=$(python3 -c "import json,sys; print(json.loads(sys.argv[1])['csrf_token'])" "$DEVBODY" 2>/dev/null || true)
+  DEVDIAG=$(curl -s -m 2 -b "$DEVJAR" -H "X-Kobra-CSRF: $DEVCSRF" -H 'Origin: http://127.0.0.1:19761' http://127.0.0.1:19761/__kobra/diagnostics || true)
+  checkcontains "dev build reports dev in diagnostics" '"dev":true' "$DEVDIAG"
+  kill $DEVPID 2>/dev/null || true; wait $DEVPID 2>/dev/null || true
+  rm -rf "$TESTDIR/OtherGame" "$TESTDIR/state-dev" "$TESTDIR/dev.log" "$TESTDIR/launcher-dev" "$DEVJAR"
 else
   echo "  FAIL  could not build the kobra_dev binary"; fail=$((fail+1))
 fi

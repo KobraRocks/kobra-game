@@ -29,21 +29,28 @@ type StateInfo struct {
 // DiagnosticsPayload is the GET /__kobra/diagnostics payload (§21.4). It must
 // contain no filesystem path and no OS username (FR-SRV-9, FR-BETA-2).
 type DiagnosticsPayload struct {
-	LauncherVersion   string            `json:"launcher_version"`
-	Release           string            `json:"release"`
-	EngineVersion     string            `json:"engine_version"`
-	Port              uint16            `json:"port"`
-	Origin            string            `json:"origin"`
-	OriginHistory     []string          `json:"origin_history"`
-	DataDirKind       string            `json:"data_dir_kind"`
-	DataWritable      bool              `json:"data_writable"`
-	AtomicityDegraded bool              `json:"atomicity_degraded"`
-	Browser           map[string]string `json:"browser,omitempty"`
-	Mods              []ModDiag         `json:"mods,omitempty"`
-	Saves             []SaveDiag        `json:"saves,omitempty"`
-	LogTail           []string          `json:"log_tail"`
-	SidecarKind       string            `json:"sidecar_kind,omitempty"`
-	SidecarFallback   string            `json:"sidecar_fallback_reason,omitempty"`
+	LauncherVersion   string   `json:"launcher_version"`
+	Release           string   `json:"release"`
+	EngineVersion     string   `json:"engine_version"`
+	Port              uint16   `json:"port"`
+	Origin            string   `json:"origin"`
+	OriginHistory     []string `json:"origin_history"`
+	DataDirKind       string   `json:"data_dir_kind"`
+	DataWritable      bool     `json:"data_writable"`
+	AtomicityDegraded bool     `json:"atomicity_degraded"`
+	// Dev reports that this is a kobra_dev build (FR-LNCH-1's development
+	// escape). It is the *only* trustworthy development signal a served page can
+	// read: the game folder and the shell are identical bytes in a dev run and in
+	// a packaged one, so a page cannot tell them apart by inspecting itself, and
+	// a release binary has no code path that can set this field. It is omitted
+	// when false, so "absent" means "not a development build" (§21.4).
+	Dev             bool              `json:"dev,omitempty"`
+	Browser         map[string]string `json:"browser,omitempty"`
+	Mods            []ModDiag         `json:"mods,omitempty"`
+	Saves           []SaveDiag        `json:"saves,omitempty"`
+	LogTail         []string          `json:"log_tail"`
+	SidecarKind     string            `json:"sidecar_kind,omitempty"`
+	SidecarFallback string            `json:"sidecar_fallback_reason,omitempty"`
 }
 
 // ModDiag is one mod entry in the diagnostics payload.

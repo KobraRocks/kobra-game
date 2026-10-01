@@ -34,3 +34,8 @@ func devGameFolderForRecovery(exe string) (string, error) {
 
 // hasDevGameDir is always false in a release build: the flag does not exist.
 func hasDevGameDir() bool { return false }
+
+// devBuild is always false in a release build. A shipped launcher therefore has
+// no code path that can report a development build, so the page's development
+// sidebar cannot be reached by any request or flag (FR-LNCH-1).
+func devBuild() bool { return false }

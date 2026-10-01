@@ -1706,6 +1706,7 @@ Session-authenticated. Returns:
   "data_dir_kind": "game",
   "data_writable": true,
   "atomicity_degraded": false,
+  "dev": true,
   "browser": { "name": "chrome", "version": "117.0.5938.132" },
   "mods": [ { "id": "hd-textures", "enabled": true } ],
   "saves": [ { "slot": "slot1", "rev": 42, "modified": "…" } ],
@@ -1714,6 +1715,8 @@ Session-authenticated. Returns:
 ```
 
 The payload **must not** contain filesystem paths or the OS username (FR-SRV-9, FR-BETA-2). A test asserts this by injecting a sentinel path into the environment and confirming it does not appear (§26.5).
+
+`dev` is present and `true` **only** when the binary was built with the `kobra_dev` tag, and is omitted otherwise, so a release payload never carries it. It exists because a game folder and its shell are byte-identical in a development run and in a packaged one: a served page therefore cannot tell the two apart by inspecting itself, and no request or flag can make a release binary report `dev`. It is the signal a page may use to offer development-only affordances, and it does not weaken FR-LNCH-1 — the release binary still has no code path that accepts a game folder from the command line.
 
 ### 21.5 Privacy
 

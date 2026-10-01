@@ -377,6 +377,9 @@ func run() int {
 		Version: version,
 		Commit:  commit,
 		Release: cfg.Release,
+		// The development signal a served page can trust (FR-LNCH-1): true only
+		// in a kobra_dev build, and absent from every release payload.
+		Dev: devBuild(),
 		// Rollback retention (Updater spec §15). The count advances only once
 		// the shell has actually connected, because "started successfully"
 		// means the launcher reached SERVE *and* a heartbeat arrived.

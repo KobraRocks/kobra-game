@@ -29,6 +29,24 @@ tools/gen-tables/     the table generator (AD-14)
 one — the first game is at `../worldspiracy` — and nothing in it is part of this
 repository. The engine's gates do not need it.
 
+## The engine is AI-first (`AD-43`)
+
+An AI agent must be able to test behaviour without a window. Four properties, and a change
+that breaks one is a defect:
+
+1. **Every capability is reachable headless**, through the library, with structured output and
+   a non-zero exit on failure. A capability that exists only in a window is not done.
+2. **No rule is reachable only through the interface.** If a control does something a command
+   cannot, the command is missing.
+3. **The human owns presentation.** State, projections, the action set, signals, string ids and
+   the frame description are assertable data; pixels and feel are not claimed as tested.
+4. **One pipeline.** Validate → lint → pack → install → play is one code path, used by the
+   editor and by an agent's script alike. A second implementation of any step is the bug
+   `AD-15` forbids for rules, applied to tooling.
+
+The artifact is a **scenario** (`AD-44`): seed, setup, commands, assertions and expected
+hashes in one file, run by `kobra-run`, failing with a structured diff.
+
 ## The gates
 
 ```sh
@@ -61,12 +79,11 @@ cannot see a game's data.
    kernels match core content by id. Splitting core content (the engine's) from
    campaign content (the game's) is a content-namespace change; it lands with the
    core-content move and it regenerates the golden replays.
-5. **Cite the spec where the rule lives** (`02:02.7`, `AD-21`, `R6`) — and the specs
-   are in this repository now, under `architecture/`. If a change alters behaviour a
-   specification describes, the specification changes in the same commit; a
-   code/spec disagreement is the bug. Paths *inside* those documents are not all
-   current: the retired web-toolchain paths (`game/`, `pkg.toml`, `launcher/`,
-   `src/web`, `docs/`) are historical, and each affected document says so at its head.
+5. **Cite the spec where the rule lives** (`02:02.7`, `AD-21`, `R6`) — and the specs are in
+   this repository, under `architecture/`. If a change alters behaviour a specification
+   describes, the specification changes in the same commit; a code/spec disagreement is the
+   bug. The set names only paths that exist: `01`, `04` and `05` are stubs keeping the section
+   anchors code cites, and nothing in it points at the retired web toolchain.
 6. **Delete dead machinery rather than documenting it.** A config key, an event or an
    exported symbol with no consumer is removed, not annotated.
 7. **Version fields are bare `X.Y.Z`, and an unparseable version fails its gate

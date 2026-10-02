@@ -8,6 +8,11 @@ retired (`AD-42`). The browser runtime these documents were originally written
 against — the wasm build, the DOM interface, the editor document, the launcher — was
 removed from the tree in the pivot's first change. Git history holds it.
 
+The engine is **AI-first** (`AD-43`): every capability is reachable headless, no rule is
+reachable only through the interface, the human owns presentation, and the editor is a GUI
+over the same pipeline as every other tool. A **scenario** (`AD-44`) is the artifact that
+makes that true in practice.
+
 Read the decision log first: `06-decisions.md` opens with an **index of what the
 pivot supersedes**, and each affected document carries a pointer at its head. A
 document marked *superseded* is kept for its design intent, not as a description of
@@ -35,7 +40,7 @@ the runtime architecture, and the delivery path.
 | [03-content-and-mods.md](03-content-and-mods.md) | The content pipeline, the asset overlay, how mods override and extend content, the modding tiers, what a mod may not do. | §03.7's tiers superseded by `AD-39`/`AD-40` |
 | [04-editor.md](04-editor.md) | *Stub.* It described the editor as a document served by the launcher. | Retired by `AD-42`; authoring is headless-first |
 | [05-delivery-and-roadmap.md](05-delivery-and-roadmap.md) | *Stub.* It described the web toolchain's build, packaging and gates, and the first game's milestones. | Retired by `AD-38`/`AD-42`; the milestones are that game's `CHANGELOG.md` |
-| [06-decisions.md](06-decisions.md) | The decision log (AD-1…AD-42), with the supersession index. | **Normative** |
+| [06-decisions.md](06-decisions.md) | The decision log (AD-1…AD-44), with the supersession index. | **Normative** |
 | [07-performance.md](07-performance.md) | The runtime acceptance bar, the memory and GPU rules, and the parallelism rules that preserve determinism. | **Normative**; its browser sections are marked retired |
 | [08-asset-pipeline.md](08-asset-pipeline.md) | **The art contract:** units and scale, the shared rig, gameplay anchors, mesh/material/texture/animation budgets, the import validator, the pinned Blender pipeline. | **Normative** |
 | [09-moddable-ui.md](09-moddable-ui.md) | The interface contract: projections with subscription and revisions, engine-computed signals, the layout vocabulary, the renderer capability object. | Contract stands; the DOM implementation is re-derived (`AD-42`) |

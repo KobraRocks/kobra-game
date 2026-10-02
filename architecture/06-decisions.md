@@ -1748,3 +1748,82 @@ the toolchain and the folder contract are what a platform would need, and both s
 toolchain the moment the runtime stopped needing one, and it makes the pipeline un-drivable
 by CI. *Keep the editor as a second document at `/editor`* — there is no origin left to
 serve it from.
+
+---
+
+## AD-43 — The engine is AI-first
+
+**Context.** The engine is developed by AI agents working for a human product owner. An agent
+can read code, run tools, author content and reason about state; it cannot reliably *drive* a
+window, and it cannot judge whether what it drew looks right. A runtime that puts behaviour
+behind the interface therefore puts that behaviour beyond the agent's reach, and the human
+becomes the bottleneck for verifying mechanics — which is the one thing this project cannot
+afford. The retired runtime made this mistake in a specific way: it had a UI tier whose
+actions were not all commands, so "can the player do X" was a question only a browser could
+answer.
+
+**Decision.** Four commitments, and each is a property a reviewer can check:
+
+1. **Every capability is reachable headless**, through the library, with structured output and
+   a non-zero exit on failure. A capability that exists only in a window is not done.
+2. **No rule is reachable only through the interface.** `AD-34` said the engine owns the
+   available-action set; this makes it a product invariant. If pressing a control does
+   something a command cannot, the command is missing — and that is a defect, not a tooling
+   gap.
+3. **The human owns presentation.** The engine owes the non-visual half as *assertable data*:
+   state, projections, the action set, signals, string ids, and the frame description. Pixels,
+   layout quality and feel are not machine-verifiable and are never claimed as tested.
+4. **The editor is a GUI over the same pipeline as every other tool** — validate → lint → pack
+   → install → play. A second implementation of any of those steps is the bug `AD-15` forbids
+   for rules, applied to tooling.
+
+The prioritisation rule that follows: **a feature's priority is how many human steps it
+removes from the loop**, not how visible it is.
+
+**Consequences.** "Done" gains a second half: not only does the gate pass, but an agent can
+close the loop that produces it. Test artifacts become scenarios (`AD-44`), because the
+alternative is a compiled test per experiment. The mod tooling is headless-first and the
+editor second, which is the opposite of the usual order and the reason `AD-42` deferred it.
+The frame description has to be reachable from the library, not only across the C ABI — it is
+not today, and closing that is part of the first slice.
+
+**Rejected.** *UI-first tooling, with headless support added later* — the agent cannot drive
+the UI, so "later" is "after a human did it by hand every time". *A separate test API that
+diverges from the host's path* — it would be a second implementation, and the tests would pass
+while the game broke. *Golden-image capture now* — it needs the native host first, and it
+verifies what a human also sees; it is not where the marginal agent capability is.
+
+---
+
+## AD-44 — A scenario is an engine artifact, and `kobra-run` is how it runs
+
+**Context.** The engine's behaviour is tested two ways today: Rust tests inside the crate, and
+a game's conformance suite — a command stream plus pinned state hashes. Both are human-shaped
+work. An agent probing a mechanic must write and compile a test, and unless it writes code it
+can assert only *"the whole state hashes to Y"*, which answers "did anything change" but not
+"did the right thing happen". `AD-43` needs a shape an agent can author, run and read without
+compiling anything.
+
+**Decision.** A **scenario** is one file with a schema, and it carries a seed, the setup, a
+command stream, assertions and expected hashes. One command runs it; a failure is a structured
+diff, not a boolean. The runner is a **CLI in the engine repository** (`kobra-run`) built on
+the same library the host links — there is no separate test path, so a scenario exercises
+exactly what a player would. Assertions cover projections, the action set, signals (`AD-34`,
+`09`), side-effect-free previews of commands, and the frame description; expected hashes cover
+determinism. The engine's own golden replays become cases of this format rather than a second
+mechanism, and a game's conformance suite becomes a scenario set.
+
+**Consequences.** A scenario is authorable, diffable and reviewable without a Rust toolchain in
+the loop, which is what makes the agent loop close. The crate's integration tests keep their
+job — they test the engine's internals — while scenarios test *behaviour through the public
+surface*, so a scenario that passes is evidence about the shipped path. The sample game
+(`crates/kobra-core/tests/`) becomes the reference scenario set, and the first scenario the
+engine owns is the one that would have caught the frame-description gap: the description is
+ABI-only today, so the library needs an accessor before an assertion can name a draw item.
+
+**Rejected.** *Scenarios as Rust tests in a shared helper* — compile-per-experiment, and an
+agent that cannot express an assertion without writing code is back where it started. *A
+bespoke harness that reimplements loading and command dispatch* — a second implementation of
+the path under test. *Assertions on the state hash alone* — a fingerprint answers "did
+anything change", never "did the right thing happen", and it makes a legitimate content change
+indistinguishable from a regression.

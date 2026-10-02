@@ -12,10 +12,14 @@ The decision is recorded in the first game's decision log, `AD-38`–`AD-42`.
 ```
 crates/kobra-core/   the engine: the 4C rules, the simulation, the content model,
                      the save format, the ABI. Zero dependencies, on purpose.
+architecture/        the engine's normative documents, and the decision log (AD-1…AD-42)
 specs/               the 4C System text, the authoritative Master Tables, and the
                      property test that cross-validates them
 tools/gen-tables/    the generator that turns the CSV into the compiled table (AD-14)
 ```
+
+No game is in this tree. A game is its own repository, checked out **beside** this
+one — the first game is at `../worldspiracy` — and nothing in it belongs here.
 
 `cargo test` at the root runs the engine's own suite: the rules, the wire format and
 the generated tables. It needs no game.
@@ -38,11 +42,12 @@ versioned C ABI (`AD-40`). It consumes the engine as a path dependency in the
 development workspace and pins a tag for a release; the engine is not published to
 a registry.
 
-The first game, Worldspiracy, is checked out under `games/` — ignored by this
-repository, because it *is* its own. Its conformance suite is the half of the
-engine's behaviour a unit test cannot reach: the shipped content loads and
-validates, the golden replays hash identically, the mod fixture changes the
-trajectory, and the string table covers the engine's narration vocabulary.
+The first game, Worldspiracy, is checked out at `../worldspiracy`. Its conformance
+suite is the half of the engine's behaviour a unit test cannot reach: the shipped
+content loads and validates, the golden replays hash identically, the mod fixture
+changes the trajectory, and the string table covers the engine's narration
+vocabulary. A CI job here runs it from a pinned checkout of that repository, so an
+engine change is verified end to end without the game being in this tree.
 
 ## Working here
 

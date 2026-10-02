@@ -20,14 +20,14 @@ coming back in that form.
 ```
 crates/kobra-core/    the engine: L0–L4 rules, the content model, save, validator,
                       the generated Master Table, the ABI
+architecture/         the engine's normative documents and the decision log
 specs/                the 4C text, the Master Tables, the property test
 tools/gen-tables/     the table generator (AD-14)
-games/worldspiracy/   the first game — its own repository, ignored by this one
 ```
 
-`games/` is a development checkout of a *consumer*. Nothing under it belongs to this
-repository, and `git clean -xfd` will delete it. The engine's own gates do not need
-it.
+**No game is in this tree.** A game is its own repository, checked out *beside* this
+one — the first game is at `../worldspiracy` — and nothing in it is part of this
+repository. The engine's gates do not need it.
 
 ## The gates
 
@@ -37,9 +37,10 @@ make clippy    # lints, warnings denied
 ```
 
 A game's conformance suite — its content, its golden replays — runs in that game's
-repository, against the engine. If you changed the engine, run that suite too and
-say so: the engine's own tests cannot see a game's data, so a change that looks
-green here can still break the game.
+repository, against the engine. The first game's suite is also a CI job here, run
+from a pinned checkout of its repository: **if you changed the engine, that job is
+the end-to-end gate**, and the engine's own tests cannot replace it, because they
+cannot see a game's data.
 
 ## Traps
 
@@ -60,11 +61,12 @@ green here can still break the game.
    kernels match core content by id. Splitting core content (the engine's) from
    campaign content (the game's) is a content-namespace change; it lands with the
    core-content move and it regenerates the golden replays.
-5. **Cite the spec where the rule lives** (`02:02.7`, `AD-21`, `R6`). If a change
-   alters behaviour a specification describes, the specification changes in the same
-   commit; a code/spec disagreement is the bug. The engine's normative documents —
-   `02-rules-engine.md`, the decision log, `07`, `08` — still live in the game's
-   `architecture/` set; moving them here is owed.
+5. **Cite the spec where the rule lives** (`02:02.7`, `AD-21`, `R6`) — and the specs
+   are in this repository now, under `architecture/`. If a change alters behaviour a
+   specification describes, the specification changes in the same commit; a
+   code/spec disagreement is the bug. Paths *inside* those documents are not all
+   current: the retired web-toolchain paths (`game/`, `pkg.toml`, `launcher/`,
+   `src/web`, `docs/`) are historical, and each affected document says so at its head.
 6. **Delete dead machinery rather than documenting it.** A config key, an event or an
    exported symbol with no consumer is removed, not annotated.
 7. **Version fields are bare `X.Y.Z`, and an unparseable version fails its gate

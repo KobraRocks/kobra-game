@@ -1,13 +1,5 @@
-# Rust build output, for the engine crates once they are extracted here.
+# Rust build output.
 /target/
-
-# Local game checkouts. Deliberately ignored: each game is its own repository,
-# checked out here so the engine can be developed against a real consumer.
-#
-# Nothing under games/ is part of this repository, so `git clean -xfd` WILL
-# delete it — drop the -x if you want it kept. See "Where the code is" in
-# AGENTS.md.
-games/
 
 # A workspace-local toolchain, for environments where the system one is absent or
 # read-only. Never committed, never required.

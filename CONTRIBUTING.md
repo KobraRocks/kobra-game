@@ -20,14 +20,16 @@ make tables    # regenerate the compiled table from the authoritative CSV
 Run the ones that cover what you touched, and say which in your pull request.
 
 **If you changed the engine, also run the first game's conformance suite** — its
-content, golden replays and mod fixture — in its checkout under `games/`:
+content, golden replays and mod fixture — from its checkout beside this one:
 
 ```sh
-cd games/worldspiracy && cargo test
+cd ../worldspiracy && cargo test
 ```
 
 The engine's own suite cannot see a game's data, so a change that is green here can
-still break the game. That is the point of the split, and the cost of it.
+still break the game. That is the point of the split, and the cost of it. The engine's
+CI runs the same suite as the `first-game` job whenever the game's repository is
+readable to it (see `.github/workflows/ci.yml`).
 
 ## Pull requests
 

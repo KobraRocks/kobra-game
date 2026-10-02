@@ -1,9 +1,10 @@
 # What this runs is what a developer runs by hand: `make check`, plus the lint
-# pass.
+# pass — and, when the first game's repository is reachable, that game's
+# conformance suite as the end-to-end gate.
 #
-# The engine has no game, no host and no browser: its suite runs on the host with
-# no network and no other checkout. A game's conformance suite — its content, its
-# golden replays — runs in that game's repository, against this one.
+# The engine job needs no game: its suite runs on the host with no network and no
+# other checkout. The `first-game` job is the other half — an engine change that
+# breaks a real game is caught here rather than in that game's repository.
 
 name: CI
 
@@ -37,3 +38,36 @@ jobs:
           python3 tools/gen-tables/gen.py --check
       - name: Tests
         run: cargo test --workspace
+
+  first-game:
+    name: first game — conformance, against this engine
+    # The end-to-end gate. It is inert until the first game's repository exists and
+    # this workflow's token can read it: set the `KOBRA_FIRST_GAME_REPO` repository
+    # variable (for example `KobraRocks/worldspiracy`) to switch it on. A private
+    # game repository additionally needs a token that can read it — the default
+    # token is scoped to *this* repository — which is why the game's own CI also
+    # runs the engine nightly: that direction needs no extra credentials.
+    if: vars.KOBRA_FIRST_GAME_REPO != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out the engine into the layout the game expects
+        uses: actions/checkout@v7
+        with:
+          # The game depends on `../kobra-games/crates/kobra-core`, so the
+          # checkouts must be siblings — the same layout a developer has.
+          path: kobra-games
+      - name: Check out the first game beside it
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ vars.KOBRA_FIRST_GAME_REPO }}
+          path: worldspiracy
+      - name: Install the pinned Rust toolchain
+        run: rustup show
+        working-directory: worldspiracy
+      - name: Formatting
+        run: cargo fmt --all -- --check
+        working-directory: worldspiracy
+      - name: The game's conformance suite
+        run: cargo test
+        working-directory: worldspiracy

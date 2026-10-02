@@ -1,0 +1,17 @@
+{
+  "schema": "kobra.replay-commands/1",
+  "note": "The sample game's command stream. It is the engine's own end-to-end case: content the engine ships a test for, not a game's. Regenerate the hashes only after reviewing the diff.",
+  "seed": 11,
+  "commands": [
+    { "cmd": "generate_world", "record": "sample.world.camp" },
+    { "cmd": "create_character", "mode": "rolled", "name_key": "sample.hero" },
+    { "cmd": "move", "to": [3, 3] },
+    { "cmd": "advance", "panels": 3 }
+  ],
+  "hashes": [
+    "db43a8a357930367",
+    "9e82d045ab7a5717",
+    "f042c4d01ac7680e",
+    "a280ab5cd680be83"
+  ]
+}

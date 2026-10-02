@@ -1,57 +1,69 @@
-# Repository-level chores.
+# The Kobra engine build.
 #
-# This is deliberately not a build entry point. The launcher and the packager are
-# separate Go modules with their own Makefiles, and everything you would normally
-# want to run — fmt, vet, test, race, cross, faultinject, verify, e2e — lives
-# there. What belongs here is only the work the *repository* owns rather than a
-# module: today that is the published schema set, which architecture/ owns and
-# which both modules vendor copies of.
+#   make check     every gate: tables, formatting, tests
+#   make test      cargo test — the rules, the wire format and the tables
+#   make tables    regenerate crates/kobra-core/src/tables from the authoritative CSV
+#   make fmt       rustfmt over the workspace
+#   make clippy    the Rust lints, warnings denied
+#   make clean
 #
-#   make                 this help (never a mutating target)
-#   make sync-schemas    copy architecture/schemas into every vendored copy
-#   make check-schemas   report drift without writing (non-zero if any)
+# Running `make` with no goal prints this list rather than building anything.
 #
-# Gates are not here on purpose. Run them per module:
-#
-#   make -C launcher fmt vet test race
-#   make -C packaging check race
-#   make -C testgame verify e2e
-#   bash .e2e/run.sh
-#
-# See CONTRIBUTING.md for which gate a given change needs.
+# Toolchains are pinned, not assumed: rust-toolchain.toml pins Rust 1.98.0, and
+# the Master Table verifier needs python3.
 
-REPO_ROOT := $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
+HERE := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 
-.PHONY: help sync-schemas check-schemas
+.PHONY: help tables tables-check test check fmt fmt-check clippy clean
 
-# help is the first target, so it is the default: running `make` with no goal
-# must print something rather than quietly rewrite files.
 help:
-	@echo 'Repository-level chores. Gates live in the module Makefiles.'
+	@echo 'The Kobra engine — a deterministic 4C System CRPG core.'
 	@echo
-	@echo '  make sync-schemas    copy architecture/schemas into every vendored copy'
-	@echo '  make check-schemas   report schema drift without writing'
+	@echo 'Check it:'
+	@echo '  make check     tables, formatting, tests'
+	@echo '  make test      cargo test — the rules, the wire format and the tables'
 	@echo
-	@echo 'Gates (see CONTRIBUTING.md):'
-	@echo '  make -C launcher fmt vet test race'
-	@echo '  make -C packaging check race'
-	@echo '  make -C testgame verify e2e'
-	@echo '  bash .e2e/run.sh'
+	@echo 'Work on it:'
+	@echo '  make tables    regenerate crates/kobra-core/src/tables (AD-14)'
+	@echo '  make fmt       rustfmt over the workspace'
+	@echo '  make clippy    the Rust lints, warnings denied'
+	@echo '  make clean     remove build output'
 
-## sync-schemas: re-copy the published schemas from architecture/schemas
-##
-## architecture/schemas is the published, normative set and the only place a
-## schema is edited. //go:embed cannot reach outside its own package and the
-## packager ships the set to publishers, so the same bytes have to exist in five
-## places — including launcher/port-deny-list.json, which `make package` copies
-## into a shipped game folder. scripts/sync-schemas.sh owns that map; this target
-## is the way to run it.
-##
-## This is a convenience, not the guard: the drift tests in both modules fail
-## the build if someone edits a schema and forgets to run it.
-sync-schemas:
-	@bash $(REPO_ROOT)/scripts/sync-schemas.sh
+## tables: regenerate the Rust Master Table from the authoritative CSV (AD-14)
+tables:
+	python3 tools/gen-tables/gen.py
 
-## check-schemas: report schema drift without writing (non-zero if any)
-check-schemas:
-	@bash $(REPO_ROOT)/scripts/sync-schemas.sh --check
+## tables-check: fail when the generated table is stale, and run the property test
+tables-check:
+	python3 specs/verify_master_tables.py
+	python3 tools/gen-tables/gen.py --check
+
+## test: the engine's own suite — the rules, the wire format and the tables
+##
+## It needs no game: a game's content and its golden replays are tested by that
+## game's own conformance suite, against this crate (README.md).
+test:
+	cargo test
+
+## check: every gate that runs in this tree (what CI runs)
+check: tables-check fmt-check test
+
+## fmt: rustfmt over the workspace
+fmt:
+	cargo fmt --all
+
+## fmt-check: fail when the workspace is not rustfmt-clean (what CI runs)
+fmt-check:
+	cargo fmt --all -- --check
+
+## clippy: the Rust lints, warnings denied
+##
+## Not part of `check`: the pinned toolchain installs a minimal profile, so the
+## component may be absent on a machine that can still build and test. CI runs
+## it, because a hosted runner can install it.
+clippy:
+	cargo clippy --all-targets -- -D warnings
+
+## clean: remove build output
+clean:
+	rm -rf $(HERE)target

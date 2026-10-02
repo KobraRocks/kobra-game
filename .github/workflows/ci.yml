@@ -1,14 +1,10 @@
-# What this runs is what the reviewers ran by hand. Every step is a make target
-# that also works on a laptop, because a gate that only exists in CI is a gate
-# nobody can reproduce.
+# What this runs is what a developer runs by hand: `make check`, plus the lint
+# pass — and, when the first game's repository is reachable, that game's
+# conformance suite as the end-to-end gate.
 #
-# The Go toolchain version comes from launcher/go.mod; the packaging module
-# builds with the same one (it declares an older minimum, not a different tool).
-#
-# The Makefiles redirect GOCACHE/GOMODCACHE into the workspace (.gocache), which
-# is what lets them run in the read-only-cache sandbox the project was developed
-# in, so setup-go's own caching is off and the cache step below covers those two
-# directories instead.
+# The engine job needs no game: its suite runs on the host with no network and no
+# other checkout. The `first-game` job is the other half — an engine change that
+# breaks a real game is caught here rather than in that game's repository.
 
 name: CI
 
@@ -21,91 +17,57 @@ on:
 permissions:
   contents: read
 
-env:
-  GOSUMDB: "off"
-
 jobs:
-  launcher:
-    name: launcher — fmt, vet, test, race, fault injection
+  engine:
+    name: engine — fmt, clippy, tables, test
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: launcher/go.mod
-          cache: false
-      - name: Cache Go build and module caches
-        uses: actions/cache@v6
-        with:
-          path: |
-            .gocache/build
-            .gocache/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('launcher/go.sum', 'packaging/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-      - name: Formatting, vet, tests, race detector
-        run: make -C launcher fmt vet test race
-      - name: Fault injection (§26.4)
-        # The tagged build, the tagged Go tests (EXDEV fallback, disk-full
-        # mapping, injected panic), and the real-process scenarios: a crash
-        # between fsync and rename with the temp file quarantined on restart, a
-        # crash between rename and the directory fsync, a panicking handler
-        # exiting 4, and a signal during drain.
-        run: make -C launcher faultinject
-
-  packaging:
-    name: packager — check, race, reproducible archives
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: launcher/go.mod
-          cache: false
-      - name: Cache Go build and module caches
-        uses: actions/cache@v6
-        with:
-          path: |
-            .gocache/build
-            .gocache/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('launcher/go.sum', 'packaging/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-      - name: Formatting, vet, tests, race detector
-        run: make -C packaging check race
-      - name: Two packaging builds must be byte-identical
-        # This also runs `kobra-pack check` over the fixture, which is the gate a
-        # publisher's pre-commit hook uses.
-        run: make -C testgame verify
-
-  e2e:
-    name: end-to-end — launcher smoke and the fixture drive
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: launcher/go.mod
-          cache: false
-      - name: Cache Go build and module caches
-        uses: actions/cache@v6
-        with:
-          path: |
-            .gocache/build
-            .gocache/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('launcher/go.sum', 'packaging/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-      - name: Install the tools the drives use
-        # zstd is not on the default image; the fixture unpacks a .tar.zst to
-        # check what was published. curl, python3, unzip, tar and sha256sum are.
+      - name: Install the pinned Rust toolchain
+        # rust-toolchain.toml is the pin; `rustup show` resolves it and installs
+        # what is missing.
+        run: rustup show
+      - name: Formatting
+        run: cargo fmt --all -- --check
+      - name: Lints
+        run: cargo clippy --all-targets -- -D warnings
+      - name: The table source satisfies its properties, and the tables are current
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq zstd
-      - name: Launcher smoke drive (build, serve, drive the API, drain)
-        run: bash .e2e/run.sh
-      - name: Fixture drive (package, install, run, update, verify)
-        run: make -C testgame e2e
+          python3 specs/verify_master_tables.py
+          python3 tools/gen-tables/gen.py --check
+      - name: Tests
+        run: cargo test --workspace
+
+  first-game:
+    name: first game — conformance, against this engine
+    # The end-to-end gate. It is inert until the first game's repository exists and
+    # this workflow's token can read it: set the `KOBRA_FIRST_GAME_REPO` repository
+    # variable (for example `KobraRocks/worldspiracy`) to switch it on. A private
+    # game repository additionally needs a token that can read it — the default
+    # token is scoped to *this* repository — which is why the game's own CI also
+    # runs the engine nightly: that direction needs no extra credentials.
+    if: vars.KOBRA_FIRST_GAME_REPO != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out the engine into the layout the game expects
+        uses: actions/checkout@v7
+        with:
+          # The game depends on `../kobra-games/crates/kobra-core`, so the
+          # checkouts must be siblings — the same layout a developer has.
+          path: kobra-games
+      - name: Check out the first game beside it
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ vars.KOBRA_FIRST_GAME_REPO }}
+          path: worldspiracy
+      - name: Install the pinned Rust toolchain
+        run: rustup show
+        working-directory: worldspiracy
+      - name: Formatting
+        run: cargo fmt --all -- --check
+        working-directory: worldspiracy
+      - name: The game's conformance suite
+        run: cargo test
+        working-directory: worldspiracy

@@ -1,0 +1,176 @@
+{
+  "schema": "kobra.content-load/1",
+  "packs": [
+    {
+      "source": "sample",
+      "priority": 0,
+      "pack": "sample.core",
+      "kind": "content",
+      "path": "sample/content/core.pack.json",
+      "records": [
+        {
+          "id": "sample.core.ladder",
+          "type": "ladder",
+          "data": {
+            "variant": "basic"
+          }
+        },
+        {
+          "id": "sample.core.traits",
+          "type": "trait_order",
+          "data": {
+            "order": [
+              "melee",
+              "coordination",
+              "brawn",
+              "fortitude",
+              "intellect",
+              "awareness",
+              "willpower"
+            ]
+          }
+        },
+        {
+          "id": "sample.core.rules",
+          "type": "rules",
+          "data": {
+            "granularity": {
+              "tile_mm": 1000,
+              "legacy_sector_tiles": 3
+            },
+            "per_distance": {
+              "attack_penalty": {
+                "steps": -1,
+                "per_tiles": 3
+              },
+              "dodge_penalty": {
+                "steps": -1,
+                "per_tiles": 3
+              }
+            },
+            "legacy": {
+              "movement_sectors": [
+                1,
+                2,
+                3
+              ]
+            },
+            "elevation": {
+              "steps_per_level": 1,
+              "cap": 2,
+              "applies_to": [
+                "ranged",
+                "power",
+                "perception"
+              ]
+            },
+            "cover": {
+              "steps": -2,
+              "cap": -4
+            },
+            "knockback_tiles": 3,
+            "initiative_awareness": true,
+            "creation": {
+              "budget_points": 300,
+              "skill_cost": 25
+            },
+            "generation_table": [
+              {
+                "lo": 0,
+                "hi": 4,
+                "rv": 10
+              },
+              {
+                "lo": 5,
+                "hi": 9,
+                "rv": 3
+              },
+              {
+                "lo": 10,
+                "hi": 19,
+                "rv": 6
+              },
+              {
+                "lo": 20,
+                "hi": 39,
+                "rv": 10
+              },
+              {
+                "lo": 40,
+                "hi": 59,
+                "rv": 20
+              },
+              {
+                "lo": 60,
+                "hi": 79,
+                "rv": 30
+              },
+              {
+                "lo": 80,
+                "hi": 95,
+                "rv": 40
+              },
+              {
+                "lo": 96,
+                "hi": 99,
+                "rv": 50
+              }
+            ],
+            "skill_table": [
+              {
+                "lo": 0,
+                "hi": 19,
+                "count": 1
+              },
+              {
+                "lo": 20,
+                "hi": 59,
+                "count": 2
+              },
+              {
+                "lo": 60,
+                "hi": 89,
+                "count": 3
+              },
+              {
+                "lo": 90,
+                "hi": 99,
+                "count": 4
+              }
+            ]
+          }
+        },
+        {
+          "id": "sample.item.club",
+          "type": "item",
+          "data": {
+            "hands": "one",
+            "melee": "bashing",
+            "price": 5
+          }
+        },
+        {
+          "id": "sample.world.camp",
+          "type": "world",
+          "data": {
+            "generator": "sample.world.camp",
+            "generate": {
+              "width": 12,
+              "height": 8,
+              "seed": 7,
+              "rise_percent": 10,
+              "water_percent": 0,
+              "cover_percent": 0,
+              "feature_tiles": 0
+            },
+            "start": [
+              2,
+              2
+            ],
+            "stations": []
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+[package]
+name = "kobra-core"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.98"
+license = "UNLICENSED"
+publish = false
+description = "The Kobra engine: a deterministic simulation core for 4C System CRPGs (AD-1, AD-2, AD-38)"
+
+[lib]
+name = "kobra_core"
+# `rlib` is how a native host links the engine: a Rust call, with no marshalling
+# (AD-38). `cdylib` is the versioned C ABI for a host that is not Rust, and it is
+# the boundary a native plugin is loaded across (AD-40).
+crate-type = ["rlib", "cdylib"]
+
+# Zero dependencies on purpose. The ABI is hand-written (AD-2, no wasm-bindgen),
+# the content format is JSON parsed by the *host*, and the tables are generated
+# (AD-14). A dependency here is a build-reproducibility liability and a permanent
+# context cost, so `cargo build` must work with an empty registry.
+[dependencies]

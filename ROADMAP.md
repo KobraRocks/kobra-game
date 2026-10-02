@@ -47,7 +47,7 @@ headless, reads a structured failure, fixes the content, and re-runs — no huma
 
 **Not in this slice:** the host, the editor, packaging, rendering.
 
-## Slice 2 — the authoring pipeline an agent can drive
+## Slice 2 — the authoring pipeline an agent can drive  *(confirmed)*
 
 **Goal.** Produce something a player could install, through the one path the editor will later
 be a face on (`AD-43` property 4).
@@ -59,7 +59,7 @@ and `play` as commands over the same library — never a second implementation o
 folder, and runs a scenario against the installed copy — one command each, no terminal
 archaeology.
 
-## Slice 3 — the native host
+## Slice 3 — the native host  *(confirmed)*
 
 **Goal.** The game runs in a window and draws the frame description (`AD-38`).
 
@@ -71,7 +71,7 @@ nothing here can be verified by an agent past "the frame description is right".
 **Exit criterion:** `make check` plus a scenario run that opens a window and exits cleanly on
 a headless CI runner — and a human confirms it renders on a real machine.
 
-## Slice 4 — Lua, then plugins
+## Slice 4 — Lua, then plugins  *(confirmed)*
 
 **Goal.** Content-shaped logic without an engine release (`AD-39`), and native capability
 extension (`AD-40`).
@@ -82,7 +82,7 @@ and the lint; then the tier-3 C ABI with its allowlist, hashes and crash naming.
 **Exit criterion:** a game-shipped Lua hook changes a resolution and the golden replays say so
 by name; a sample plugin registers one primitive and its hash lands in the save.
 
-## Slice 5 — the editor
+## Slice 5 — the editor  *(confirmed)*
 
 **Goal.** A human authors content without touching JSON, over slice 2's pipeline.
 
@@ -91,6 +91,31 @@ install, play. Headless-first stays true: the GUI calls the same commands an age
 
 **Exit criterion:** someone who did not write the engine authors a mod through the editor and
 plays it, with no terminal involved.
+
+## The reference game
+
+The sample game (`crates/kobra-core/tests/fixtures/`) grows into the **reference game**: the
+engine's own game, and the one game allowed in this tree. It is not a fixture and not a
+third-party game — it is the engine's demonstration and its benchmark, and it is what proves a
+full game can be built on the engine *before* the first real one tries.
+
+Three jobs:
+
+1. **Coverage.** Every mechanic the specifications define has a scenario in it (`AD-44`). A
+   mechanic with no scenario is not demonstrated, and therefore not ready.
+2. **Scale.** It carries the committed benchmark scene (`07`, `AD-24`): a stress scenario that
+   drives the frame-time and memory budgets with *generated* actors, not hand-authored ones.
+   Breadth of mechanics, depth of scale, and no second content set to maintain by hand.
+3. **Generality.** It is a different universe from the first game, with its own namespaces and
+   no borrowings from it. That is the standing test that this is a CRPG engine and not a
+   Worldspiracy-shaped one (`AGENTS.md` trap 4).
+
+The rule that keeps it affordable: **the reference game is broad and shallow; a real game is
+narrow and deep.** It grows one mechanic at a time, alongside the slice that makes that mechanic
+testable, and it stays small enough that maintaining it never competes with building the engine.
+
+**Everything the engine ships is demonstrated here first.** A feature that cannot be shown in
+the reference game is either not finished or not needed.
 
 ## The first game's roadmap is the game's
 
@@ -112,13 +137,13 @@ wins for content.
 ## Open questions
 
 The engine's risks are in `architecture/README.md` under "What is still open" (R1, R6, R12–R15).
-This list is the roadmap's own:
+These are the roadmap's own, with what this session settled:
 
-- **Does the sample game grow into a reference game?** It currently proves the engine runs *a*
-  game. Making it exercise every mechanic would let engine changes be tested without the first
-  game's content — at the cost of maintaining a second content set.
-- **How much of the interface becomes assertable data?** Slice 1 covers draw items, layers and
-  text ids. Whether that is enough for the questions that actually come up is something the
-  first few scenarios will answer.
-- **When does the first game move from placeholder content to real content?** That is a Product
-  Owner call, and it is the point at which the editor (slice 5) stops being optional.
+- **What is the readiness gate?** The first game moves to real content when the reference game
+  demonstrates readiness to build a full game. "Demonstrates readiness" is not yet a checkable
+  property, and a gate that is a feeling is not a gate — pinning it down is open.
+- **Is the assertable interface enough?** *Settled as: discover it by doing.* Slice 1 exposes
+  draw items, layers and text ids; if a question repeatedly cannot be asked headlessly, that is
+  the signal to extend the surface, not to reach for a window.
+- **When does the first game move off placeholder content?** Gated on the readiness question
+  above; not urgent, because the engine has several slices to land first.

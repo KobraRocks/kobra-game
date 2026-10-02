@@ -4,6 +4,10 @@
 what is easy to get wrong in *this* tree when editing with tools rather than by
 hand.
 
+[`ROADMAP.md`](ROADMAP.md) is the **golden source for what to work on next**: read it
+after this file, work the open slice, and update it in the same commit that lands one. A
+stale roadmap sends the next session at finished work.
+
 ## What this is
 
 The engine for a single-player, offline, deterministic CRPG on the 4C System —

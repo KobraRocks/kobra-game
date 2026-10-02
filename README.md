@@ -51,5 +51,6 @@ engine change is verified end to end without the game being in this tree.
 
 ## Working here
 
-`AGENTS.md` records what is easy to get wrong in this tree. `CONTRIBUTING.md` has
-the setup, the gates, and the rules of the house.
+`AGENTS.md` records what is easy to get wrong in this tree, `CONTRIBUTING.md` has the setup,
+the gates and the rules of the house, and [`ROADMAP.md`](ROADMAP.md) says what to work on
+next and what "done" means for it.

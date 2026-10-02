@@ -14,5 +14,5 @@ specifications cite its sections:
 |---|---|---|
 | `05:05.2` | the build pipeline | `Makefile`; `tools/gen-tables/` |
 | `05:05.4` | the gates | `make check`; this repository's CI |
-| `05:05.5` | the milestone list | the first game's `CHANGELOG.md` |
+| `05:05.5` | the milestone list | [`../ROADMAP.md`](../ROADMAP.md) for the engine; the first game's `CHANGELOG.md` for its content |
 | `05:05.6`, `05:05.7` | open risks | the open questions in [README.md](README.md) |

@@ -87,6 +87,9 @@ Stated so nobody designs for them by accident:
 
 ## What is still open
 
+These are risks and open questions, not a plan. **What to work on next, and what "done" means
+for it, is [`../ROADMAP.md`](../ROADMAP.md).**
+
 | # | Open question | Where |
 |---|---|---|
 | R1 | **Resolved to a task, not a blocker.** The CSV's colour block is provably corrupt (22 of 286 cells disagree with the primary source, its header is permuted, and it carries no colours for the Advanced table). The authoritative source is the Libre Edition *Master Tables* document, whose colours appear **both** as cell text and as cell shading — two independent encodings that cross-validate. Transcribe from it; treat the CSV as a cross-check that is expected to disagree. | §02.2 |

@@ -99,6 +99,16 @@ engine's own game, and the one game allowed in this tree. It is not a fixture an
 third-party game — it is the engine's demonstration and its benchmark, and it is what proves a
 full game can be built on the engine *before* the first real one tries.
 
+**Its universe is `Kobraverse`**: small but real, so a human can be shown what the engine does
+rather than being told. Two consequences worth stating, because they are the point:
+
+- It is **not the first game's universe**, and it borrows nothing from it. That is the standing
+  test that this is a CRPG engine and not a Worldspiracy-shaped one (`AGENTS.md` trap 4).
+- Its content ids carry **its own prefix** (`kobraverse.*`) while the engine's wire schemas stay
+  `kobra.*`. It is where the content-namespace rule is demonstrated first; the owed split of the
+  *core* content (rules, powers, gear) is a separate change, because that one regenerates the
+  golden replays.
+
 Three jobs:
 
 1. **Coverage.** Every mechanic the specifications define has a scenario in it (`AD-44`). A
@@ -116,6 +126,32 @@ testable, and it stays small enough that maintaining it never competes with buil
 
 **Everything the engine ships is demonstrated here first.** A feature that cannot be shown in
 the reference game is either not finished or not needed.
+
+## Readiness: when the first game starts for real
+
+The first game moves from placeholder to real content when the reference game passes this gate.
+Three clauses, all of which must hold. The first two an agent checks; the third is assembled as
+evidence and **confirmed by the Product Owner**, because judgement is the one thing that cannot
+be automated and pretending otherwise is how a gate becomes a formality.
+
+1. **Coverage.** Every mechanic on the coverage list has reference content and at least one
+   scenario. The list is derived by an agent from `02-rules-engine.md` and the milestone record,
+   **approved once by the Product Owner**, and kept with the reference game. A mechanic missing
+   from it is an *explicit exclusion with a reason*, never an omission.
+2. **The full loop runs twice.** Character creation → explore → talk → fight → level → save →
+   load → mod → play again, end to end, driven by scenarios. The second pass is different
+   content on a different path, not a re-run of the first command stream.
+3. **The engine goes quiet.** The work that produced the second pass required **no new engine
+   capability** — no new command, projection, signal, content primitive or rules change. Bug
+   fixes are not feature work and are listed separately. The evidence is the commit range for
+   the second pass: the agent reports it, the Product Owner confirms it.
+
+Clause 3 is the one that predicts a smooth real-game build. Coverage says the mechanics exist;
+the loop says they compose; only a quiet engine says that *a game's worth of content* no longer
+generates engine work.
+
+**Next step: derive the coverage list and bring it back for approval.** Until that list exists
+this gate cannot be applied, and the reference game's content has no definition of done.
 
 ## The first game's roadmap is the game's
 
@@ -139,9 +175,8 @@ wins for content.
 The engine's risks are in `architecture/README.md` under "What is still open" (R1, R6, R12–R15).
 These are the roadmap's own, with what this session settled:
 
-- **What is the readiness gate?** The first game moves to real content when the reference game
-  demonstrates readiness to build a full game. "Demonstrates readiness" is not yet a checkable
-  property, and a gate that is a feeling is not a gate — pinning it down is open.
+- **The coverage list does not exist yet.** The readiness gate's first clause needs it, so it is
+  the next piece of work rather than an open question.
 - **Is the assertable interface enough?** *Settled as: discover it by doing.* Slice 1 exposes
   draw items, layers and text ids; if a question repeatedly cannot be asked headlessly, that is
   the signal to extend the surface, not to reach for a window.

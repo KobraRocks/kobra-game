@@ -25,7 +25,6 @@ holds, `make check` passes, and the first game's conformance suite still passes.
 | `crates/kobra-core` | the 4C rules, the simulation, the content model, the save, the validator, the ABI — zero dependencies, 190 tests, plus a sample game that runs end to end |
 | `specs/`, `tools/gen-tables/` | the 4C sources of truth and the compiled-table generator (`AD-14`) |
 | `architecture/` | the normative set and the decision log, `AD-1`…`AD-44` |
-| The web runtime, launcher, packager, fixture game, their specifications | **removed** (`AD-38`–`AD-42`); git history holds them |
 | The first game | its own repository beside this one, 44 files, 37 conformance tests |
 | Not built | a headless driver, a scenario format, the authoring pipeline, the native host, the editor, the game-folder contract, Lua, plugins |
 
@@ -168,7 +167,7 @@ wins for content.
 | Moving the core content into the engine | the namespace split above | core rules/powers/skills/gear are the engine's; a game's campaign is the game's |
 | The game-folder contract | slice 3 | where a game sits, how it is selected, saves, mods, entry point — and the mod-manifest schema that has no file today |
 | Golden-image capture | slice 3 | it verifies what a human also sees, so it is not where the marginal agent capability is |
-| The launcher, as a product | a second game | if it returns it is a mod manager and an updater, not a server (`AD-42`) |
+| A library shell, as a product | a second game | if it returns it is a mod manager and an updater, not something that owns the runtime (`AD-42`) |
 
 ## Open questions
 

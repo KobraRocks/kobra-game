@@ -17,45 +17,54 @@ coming back in that form.
 
 ## Where the code is
 
-The engine is a Rust crate inside the first game's own repository, checked out here
-because this working directory must be writable:
-
 ```
-games/worldspiracy/src/core/      the engine crate — zero dependencies
-games/worldspiracy/specs/         the 4C text, the Master Tables, the property test
-games/worldspiracy/tests/replay/  the golden replays — the determinism gate
-games/worldspiracy/content/       the first game's content (campaign packs)
+crates/kobra-core/    the engine: L0–L4 rules, the content model, save, validator,
+                      the generated Master Table, the ABI
+specs/                the 4C text, the Master Tables, the property test
+tools/gen-tables/     the table generator (AD-14)
+games/worldspiracy/   the first game — its own repository, ignored by this one
 ```
 
-Nothing under `games/` belongs to this repository — `git clean -xfd` will delete
-it. The engine moves here next, with fixtures of its own; until then the gates run
-from that checkout.
+`games/` is a development checkout of a *consumer*. Nothing under it belongs to this
+repository, and `git clean -xfd` will delete it. The engine's own gates do not need
+it.
 
 ## The gates
 
 ```sh
-cd games/worldspiracy && make check     # tables, formatting, the whole test suite
-cd games/worldspiracy && make clippy    # lints, warnings denied
+make check     # tables, formatting, the engine's own tests
+make clippy    # lints, warnings denied
 ```
 
-`cargo test` runs on the host: no wasm, no browser, no node.
+A game's conformance suite — its content, its golden replays — runs in that game's
+repository, against the engine. If you changed the engine, run that suite too and
+say so: the engine's own tests cannot see a game's data, so a change that looks
+green here can still break the game.
 
 ## Traps
 
 1. **The engine core has zero dependencies, on purpose.** A dependency there needs a
    stated reason: it is a reproducibility liability and a permanent context cost.
 2. **The simulation is integer-only, and that is not a style choice.** No floats on
-   state paths, no wall clock, no locale, no unseeded randomness. The replay oracle
-   is what proves it, and a divergence is a defect, not a flake.
+   state paths, no wall clock, no locale, no unseeded randomness. The golden replays
+   are what prove it, and a divergence is a defect, not a flake.
 3. **One rules implementation.** The engine resolves; content and Lua ask. A second
    implementation of a rule is the bug (`AD-15`).
 4. **No game-specific identifier in an engine crate.** A game's name belongs in its
-   content and packaging, never in the engine's wire contracts. This is what makes a
-   second game cheap, and it is *not yet true* of every schema string in
-   `games/worldspiracy/src/core` — fixing that is part of the extraction.
+   content and its own repository, never in the engine's wire contracts. The
+   `kobra.*` schemas are the engine's: `kobra.save/1`, `kobra.content-load/1`,
+   `kobra.content-pack/1`, `kobra.load-report/1`, `kobra.script-report/1`,
+   `kobra.replay/1`, `kobra.ui-layout/1`.
+   **Known exception, owed:** *content record ids* still carry the first game's short
+   prefix (`wsp.power.*`, `wsp.item.*`, …), because the engine's canonical power
+   kernels match core content by id. Splitting core content (the engine's) from
+   campaign content (the game's) is a content-namespace change; it lands with the
+   core-content move and it regenerates the golden replays.
 5. **Cite the spec where the rule lives** (`02:02.7`, `AD-21`, `R6`). If a change
    alters behaviour a specification describes, the specification changes in the same
-   commit; a code/spec disagreement is the bug.
+   commit; a code/spec disagreement is the bug. The engine's normative documents —
+   `02-rules-engine.md`, the decision log, `07`, `08` — still live in the game's
+   `architecture/` set; moving them here is owed.
 6. **Delete dead machinery rather than documenting it.** A config key, an event or an
    exported symbol with no consumer is removed, not annotated.
 7. **Version fields are bare `X.Y.Z`, and an unparseable version fails its gate

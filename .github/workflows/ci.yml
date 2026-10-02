@@ -1,0 +1,39 @@
+# What this runs is what a developer runs by hand: `make check`, plus the lint
+# pass.
+#
+# The engine has no game, no host and no browser: its suite runs on the host with
+# no network and no other checkout. A game's conformance suite — its content, its
+# golden replays — runs in that game's repository, against this one.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  engine:
+    name: engine — fmt, clippy, tables, test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install the pinned Rust toolchain
+        # rust-toolchain.toml is the pin; `rustup show` resolves it and installs
+        # what is missing.
+        run: rustup show
+      - name: Formatting
+        run: cargo fmt --all -- --check
+      - name: Lints
+        run: cargo clippy --all-targets -- -D warnings
+      - name: The table source satisfies its properties, and the tables are current
+        run: |
+          python3 specs/verify_master_tables.py
+          python3 tools/gen-tables/gen.py --check
+      - name: Tests
+        run: cargo test --workspace

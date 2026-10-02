@@ -1,0 +1,15 @@
+# The pinned Rust toolchain for the engine.
+#
+# Reproducibility is a requirement, not a goal: two builds of the same source must
+# compare byte-for-byte, so every toolchain that touches an artifact is pinned.
+# `clippy` and `rustfmt` are part of the pin because CI gates on them
+# (`.github/workflows/ci.yml`, `make clippy` / `make fmt-check`): a minimal
+# profile installs neither, so the pin has to name them.
+#
+#   rustup toolchain install 1.98.0 --profile minimal --component clippy,rustfmt
+#
+# or just run any cargo command under this directory: rustup reads this file.
+[toolchain]
+channel = "1.98.0"
+components = ["clippy", "rustfmt"]
+profile = "minimal"

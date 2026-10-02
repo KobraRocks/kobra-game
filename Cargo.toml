@@ -1,0 +1,27 @@
+# The engine workspace.
+#
+# A host crate (`wgpu` + `winit`, AD-38), the custody crates (saves, mods,
+# updates — AD-42) and the Lua host (AD-39) join as they land; today the engine
+# is one crate. Games are not workspace members: a game is its own repository and
+# consumes these crates (see README.md).
+[workspace]
+members = ["crates/kobra-core"]
+resolver = "2"
+
+# Profiles live here, not in a member: cargo ignores a profile declared by a
+# non-root package, so a member's `[profile.release]` is silently inert.
+
+[profile.release]
+panic = "abort"
+# Performance is the master goal (AD-24) and the engine is native now (AD-38), so
+# this is no longer the wasm size profile it used to be: optimise for speed and
+# let LTO do the cross-module work.
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = "debuginfo"
+
+[profile.dev]
+# panic=unwind so `cargo test` can run its harness; the shipped artifact is always
+# the release profile, which is panic=abort.
+debug = true

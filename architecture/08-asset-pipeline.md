@@ -126,7 +126,7 @@ carried into the content manifest by the validator.
 - **Source files accompany the delivery** (`.blend` or equivalent). The `.glb` is the
   runtime artifact; the source is the maintainable one, and a cast that cannot be edited
   is a cast that cannot be fixed.
-- Textures travel beside the model under the pack's `assets/` subtree so the overlay rules
+- Textures travel beside the model inside the pack's own tree so the overlay rules
   apply unchanged (`03:03.4`).
 
 ## 08.8 Placeholder art is a pack, and the demo reuses everything else
@@ -156,7 +156,7 @@ Errors block the asset. Warnings are reported and shown in the editor's asset in
 | **Error** | Required animation set absent; duplicate clip names; a clip whose length is 0 |
 | **Error** | Texture dimensions not power-of-two, or above the tier ceiling |
 | **Error** | A material requiring an unknown shader feature |
-| **Error** | Naming: id not namespaced under the pack, or a path outside the pack's `assets/` subtree |
+| **Error** | Naming: id not namespaced under the pack, or a path outside the pack's tree |
 | **Warning** | Colour space mismatch (an sRGB map in a linear slot or vice versa) |
 | **Warning** | Triangle or material count above the tier budget |
 | **Warning** | Rest pose differs from the documented one; a clip that assumes a hard cut |
@@ -202,15 +202,15 @@ boundary inside the standard file rather than in a side format:
 
 | Blender-side | glTF `extras` key | Consumed by |
 |---|---|---|
-| Custom property on the armature | `wsp_rig` (contract id, e.g. `humanoid_v1`) | Validator: which bone set to check |
-| Empty named `eye_level` / `slot_mainhand` / … | `wsp_anchor` (anchor id) | Validator and runtime: gameplay anchors (`§08.3`) |
-| Custom property on a mesh | `wsp_lod` (`0` \| `1` \| `2`), `wsp_layer` | Renderer: LOD selection; validator: budget check |
-| Custom property on a material | `wsp_material_role` (`body` \| `gear` \| `prop`) | Validator: the two-material ceiling |
-| Clip custom property | `wsp_clip` (state, variant, direction, loop, markers) | Runtime: the animation state machine (`§08.6`) |
+| Custom property on the armature | `kobra_rig` (contract id, e.g. `humanoid_v1`) | Validator: which bone set to check |
+| Empty named `eye_level` / `slot_mainhand` / … | `kobra_anchor` (anchor id) | Validator and runtime: gameplay anchors (`§08.3`) |
+| Custom property on a mesh | `kobra_lod` (`0` \| `1` \| `2`), `kobra_layer` | Renderer: LOD selection; validator: budget check |
+| Custom property on a material | `kobra_material_role` (`body` \| `gear` \| `prop`) | Validator: the two-material ceiling |
+| Clip custom property | `kobra_clip` (state, variant, direction, loop, markers) | Runtime: the animation state machine (`§08.6`) |
 
 Two of these need **small exporter work** rather than being free: glTF has no LOD concept,
 so grouping is a convention the exporter must emit; and Blender timeline markers are **not**
-exported by default, so clip markers must be written into `wsp_clip` by the addon. Both are
+exported by default, so clip markers must be written into `kobra_clip` by the addon. Both are
 afternoons, not projects — but they are work, not configuration.
 
 ### The headless compiler

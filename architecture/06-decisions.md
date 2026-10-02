@@ -24,9 +24,11 @@ and with the record that supersedes it.
 | AD-3 | AD-38 (reversed) | The renderer is native and owned, not TypeScript in a worker |
 | AD-4 | AD-38 (reversed) | No two-worker topology and no shared frame ring; the packet is a frame description, not a transport |
 | AD-5 | AD-38 (reversed) | No `SharedArrayBuffer` and no `require-corp`; threads are the host's business now |
+| AD-10 | AD-42 (in part) | The mod-serving switch was the launcher's; "a game never assumes its own paths" stands |
 | AD-8 | AD-39, AD-40 (reversed) | Lua replaces ES modules, and the tier list grows a native plugin tier |
 | AD-12 | AD-42 (reversed) | There is no second document at `/editor`; authoring is headless-first |
 | AD-13 | AD-42 (in part) | The `tar.zst` mod archive survives; "built in the browser" becomes `kobra-pack` |
+| AD-20 | AD-38 (reversed) | Sources are no longer split into an engine, a web app and a package: the engine is crates, and a game is its own repository |
 | AD-17 | AD-38 (reversed) | There is no browser floor because there is no browser; U8 is withdrawn |
 | AD-19 | AD-41 (in part) | "The page never talks to the network" becomes "the binary never talks to the network"; custody moves in-process (AD-42) |
 | AD-23 | AD-42 (reversed) | The `/editor` route and `server.entry_path` retire with the launcher |
@@ -45,9 +47,9 @@ and with the record that supersedes it.
 > runtime is native.
 
 **Context.** The launcher's architecture already names the engine as "WASM core
-(Rust/C++), in a Worker" (FS §3.1). That leaves open *how much* goes in.
+(Rust/C++), in a Worker". That leaves open *how much* goes in.
 
-**Decision.** `game.wasm` contains everything whose behaviour a save, a replay, or a
+**Decision.** The engine module contains everything whose behaviour a save, a replay, or a
 mod must be able to depend on: 4C rules resolution, trait/character/vehicle state,
 the combat turn machine, the sector world and its AI, the seeded RNG, save-state
 serialisation, and content validation. It contains **no** DOM access, no `fetch`,
@@ -78,15 +80,15 @@ boundary to JS.
 
 **Decision.** The crate compiles to `wasm32-unknown-unknown` with
 `crate-type = ["cdylib"]` and exports a flat, versioned C ABI under a
-`wsp_` prefix: `wsp_abi_version()`, `wsp_alloc`, `wsp_free`, `wsp_init`,
-`wsp_command`, `wsp_tick`, `wsp_render_packet`, `wsp_save`, `wsp_load`,
-`wsp_validate_content`. Glue is hand-written plain JS over `WebAssembly.instantiate`.
+`kobra_` prefix: `kobra_abi_version()`, `kobra_alloc`, `kobra_free`, `kobra_init`,
+`kobra_command`, `kobra_tick`, `kobra_render_packet`, `kobra_save`, `kobra_load`,
+`kobra_validate_content`. Glue is hand-written plain JS over `WebAssembly.instantiate`.
 Error reporting is an integer status plus a length-prefixed UTF-8 message read from
 linear memory, never a JS exception crossing the boundary.
 
 **Consequences.** The JS side has no build-time dependency on the WASM build, so
 the worker, renderer, editor and any tooling stay plain ES modules. The ABI is
-ours to version: `wsp_abi_version()` is checked at boot and mismatches fail into a
+ours to version: `kobra_abi_version()` is checked at boot and mismatches fail into a
 clean error, not a `TypeError` deep in a frame. Modders never need a Rust toolchain.
 
 **Rejected.** *`wasm-bindgen`* — convenient, but it couples the glue to the exact
@@ -144,7 +146,7 @@ crossing no longer has to be a copy.
 **Decision.** Three threads with one job each:
 
 - **main** — DOM UI, input decoding, the data API. Never in the frame loop.
-- **sim worker** — `game.wasm` plus a pthread pool, owning the packet memory.
+- **sim worker** — the engine module plus a pthread pool, owning the packet memory.
 - **render worker** — the WebGPU device and render passes, owning an `OffscreenCanvas`
   transferred from the main thread.
 
@@ -171,15 +173,15 @@ the game feels heavy exactly when the machine is loaded.
 
 **Context.** `SharedArrayBuffer` requires a secure context **and** cross-origin
 isolation, which requires `Cross-Origin-Embedder-Policy`. The launcher sends COOP
-`same-origin` already, but did not send COEP, and FR-SRV-16 made it conditional with
+`same-origin` already, but did not send COEP, and the configuration made it conditional with
 the decision deferred to the engine team. Performance is the master goal (`AD-24`),
 and a single core is the first thing that would cap it.
 
 **Decision.** **`require-corp`, and a multithreaded core.** The launcher now
 implements `server.cross_origin_embedder_policy` (empty | `require-corp` |
-`credentialless`), the shipped game config sets `require-corp`, and `engine.manifest.json`
+`credentialless`), the shipped game config sets `require-corp`, and the engine manifest
 declares `threads` and `shared-array-buffer` in `required_features`. The shell verifies
-`crossOriginIsolated` at boot and fails with a named cause (FR-SRV-16a, error matrix E2)
+`crossOriginIsolated` at boot and fails with a named cause (error matrix E2)
 if the publisher did not configure it.
 
 Parallelism is governed by the determinism rules in `07:07.4`: parallel systems are
@@ -262,17 +264,17 @@ impossible, which is the opposite of the goal.
 quest trigger, or new AI — and 4C powers are the heart of the game. A
 code-only system makes trivial content edits require a toolchain. The launcher's
 threat model already classifies mods as *trusted user data, not a security
-boundary* (FS §1.3, §14), and CSP `script-src 'self'` means a `.js` file under an
-enabled mod's `assets/` subtree is loadable.
+boundary*, and CSP `script-src 'self'` means a `.js` file under an
+enabled mod's own tree is loadable.
 
 **Decision.** Two tiers, both first-class in the editor:
 
 - **Tier 1 — Data mods.** Declarative content and declarative effects (the effect
   DSL of `§02.4`). No executable code. This must cover the overwhelming majority of
   real mods.
-- **Tier 2 — Script mods.** ES modules under `assets/scripts/` that the engine
+- **Tier 2 — Script mods.** ES modules under the scripts that the engine
   dynamically imports and registers against a **versioned** API
-  (`worldspiracy.mod/v1`). Hooks are pure functions of integer state plus the
+  (`kobra.mod/v1`). Hooks are pure functions of integer state plus the
   seeded RNG. No DOM, no `fetch`, no timers, no floats on state paths.
 
 **Consequences.** A mod can always do more than data allows, and the cost of that is
@@ -289,18 +291,18 @@ only if a mod-distribution channel ever appears.
 
 ---
 
-## AD-9 — Mod discovery is by a conventional in-`assets/` index, not by listing
+## AD-9 — Mod discovery is by a conventional index in the mod's own tree, never by listing
 
-**Context.** `mod.manifest.json` lives at `data/mods/<id>/mod.manifest.json`; the
-only mod route is `/mods/<id>/assets/*`, which requires the literal `assets/`
-segment. The data API exposes `GET /api/data/config/mods` (id, name, version,
-priority, enabled, `missing_dependency`) and **no** route that serves a mod's
-manifest. So the browser can learn *which* mods are enabled but not *what files*
-they contain, and the base `asset.manifest.json` only describes base assets.
+**Context.** A mod is installed as a folder whose *own tree* holds everything it ships,
+and the loader — not the engine — is what walks it. Nothing enumerates a mod's files for
+the consumer: the enabled-mods query reports id, name, version, priority, `enabled` and
+`missing_dependency`, and there is no route that serves a mod's manifest. So a consumer can
+learn *which* mods are enabled but not *what files* they contain, and the base asset
+manifest describes base assets only.
 
 **Decision.** Every content mod ships a **conventional index** at
-`assets/data/mod.json`, declaring the mod's content entries, its declared hooks, and
-its content-pack id. The engine probes `/mods/<id>/assets/data/mod.json` for each
+the mod index, declaring the mod's content entries, its declared hooks, and
+its content-pack id. The engine probes the mod's index for each
 enabled mod id, then loads exactly what the index names. Overrides need no index —
 they work by path shadowing in the VFS.
 
@@ -310,30 +312,31 @@ manager. Cost: a mod author must include one small file, which the editor writes
 them.
 
 **Rejected.** *Probe a list of conventional filenames per mod* — brittle and
-ambiguous. *Request an upstream `GET /api/data/mods/{id}/manifest`* — the right
+ambiguous. *Request an upstream mod-manifest route* — the right
 long-term answer (recorded as an upstream request in `§05.6`), but it must not be a
 dependency for v1.
 
 ---
 
-## AD-10 — `serve_mods` stays `true`; the base game never assumes its own paths
+## AD-10 — A game never assumes its own paths
 
-**Context.** `serve_mods: true` is the default and is what makes `/mods/*` readable.
-With it false there is no route at all for mod content, because `/api/data/mods/*`
-does not exist in the launcher.
+> **Superseded in part by AD-42.** This decision was about the launcher's mod-serving
+> switch, which is gone with the launcher. What survives is the second half: a game never
+> assumes the paths it is loaded from.
 
-**Decision.** Ship `serve_mods: true`, treat it as load-bearing, and document it as
-such in `launcher/launcher.config.json` comments and in the editor. Every asset is
-requested through the VFS, which tries mod overlay then base — never a hardcoded
-`/assets/...` URL.
+**Context.** The launcher served mod content only because a switch was on: with it off
+there was no route for mod content at all, and no manifest route either.
 
-**Consequences.** Mods work. The residual risk is covered by the CSP: a mod cannot
-reach the network, cannot write to `data/` (no endpoint), and cannot shadow
-`engine/`. A player who wants no mods disables them in `data/config/mods.json`
-(FR-AST-13), which is a file they can edit without a working game.
+**Decision.** Treat mod content as load-bearing rather than optional: every asset is
+requested through the overlay, which tries a mod first and the base game second, and no
+code anywhere hardcodes a base path.
 
-**Rejected.** *`serve_mods: false` and gate mods behind the session* — no such route
-exists today; would be an upstream change with no benefit here.
+**Consequences.** Mods work, and a game that is moved or renamed keeps working. A player who
+wants no mods disables them in the host's settings — a file they can edit without a working
+game.
+
+**Rejected.** *Serve mods only to an authenticated session* — there was no such route, so it
+would have been an upstream change with no benefit here.
 
 ---
 
@@ -370,13 +373,13 @@ settings key whitelist forbids it, and settings are not versioned per slot.
 
 ## AD-12 — The editor is a second document at `/editor`, not a second app
 
-**Context.** The launcher opens one page and hands it a **single-use** bootstrap token
-(`POST /__kobra/session`, single use), so a second document cannot mint its own
-session — and packaging keeps the `game/` root to `index.html` + `shell.js`. The first
+**Context.** The retired runtime opened one document and handed it a **single-use** bootstrap
+token, so a second document could not mint its own session — and packaging kept the game
+folder's root to the boot document and the shell. The first
 revision therefore concluded that the editor had to be a *mode* of the game document.
 
 **Decision.** **The editor is its own document at `/editor`, served by the launcher
-from `game/editor/`, and it needs no new session machinery.** It is same-origin, so it
+from the editor's tree, and it needs no new session machinery.** It is same-origin, so it
 inherits the `kobra_session` cookie of whatever established a session, reads the
 non-HttpOnly `kobra_csrf` cookie, and satisfies the double-submit check on its own.
 The launcher change that makes this possible is `AD-23` (the route plus
@@ -395,10 +398,10 @@ shared, because both documents are in the same origin and the same package. The 
 thing that must not regress: neither document may navigate the other, and neither may
 depend on a token the other holds.
 
-**Rejected.** *Editor as a mode of `index.html` only* — the first revision's design,
+**Rejected.** *Editor as a mode of the boot document only* — the first revision's design,
 correct before the route existed; it forces the editor into the game's bundle and makes
 the editor unreachable to a player who has not booted the game. *A second bootstrap
-token via a new `POST /__kobra/open` endpoint* — real added surface for something the
+token via a second open endpoint* — real added surface for something the
 existing cookies already provide (`AD-23`). *A separate origin or a native editor app*
 — throws away "playtest the real game in one click" and doubles the platform surface.
 
@@ -413,11 +416,11 @@ download of a save slot.
 
 **Decision.** An editor project is a **save slot** (`edit.<project>`, arbitrary JSON
 payload), saved with the same revision/conflict discipline as a game save, and
-exportable with `GET /api/export/{slot}`. **Publish** assembles the project into the
+exportable with an export request. **Publish** assembles the project into the
 mod layout (index, content JSONs, assets), writes a tar stream in JS, compresses it
-with a small zstd **wasm** encoder shipped under `game/editor/lib/`, and POSTs
-`/api/mod {action:"install", archive_bytes:<base64>}`. This lands the pack directly
-in `data/mods/<id>/` where the game will load it on the next boot.
+with a small zstd **wasm** encoder shipped under the editor's lib directory, and POSTs
+an install request. This lands the pack directly
+in the mods directory where the game will load it on the next boot.
 
 **Consequences.** The whole author→playtest→publish loop works without leaving the
 browser and without any launcher change. Two limits are designed around rather than
@@ -430,20 +433,20 @@ publishing never *depends* on the zstd encoder.
 it* — a terrible loop, and it breaks the "modders expand the game" goal. *Ask for a
 new launcher endpoint that writes loose mod files* — the better long-term answer
 (upstream request, `§05.6`); v1 must not require it. *Publish as `.zip`* — the
-launcher only unpacks tar.zst (FS §27.5 is explicit that the mod archive layout is
+loader only unpacks tar.zst (the mod archive layout is
 deferred).
 
 **As built (M4 walking skeleton) — the tar and the frame are shared code, and the
 encoder is ours.** `04:04.7` requires the editor's publish path to produce *the same
-archive* as `tools/pack.mjs`, and the stronger property the slice set was
+archive* as the packer, and the stronger property the slice set was
 **byte-identical by construction**, not merely the same format. That requirement is
 what moved the decision, because it is a constraint the original wording did not
 carry:
 
 - **One writer.** The `ustar` headers, the entry order, the name rules and the zstd
-  frame live in `src/web/shared/tar.ts` and `src/web/shared/zstd.ts`, imported by
-  `tools/pack.mjs` and by the editor. Only the file list differs, because only Node
-  can enumerate a directory. The byte-identity test (`tests/web/editor.test.mjs`)
+  frame live in the shared archive writer and the shared zstd writer, imported by
+  the packer and by the editor. Only the file list differs, because only Node
+  can enumerate a directory. The byte-identity test (the editor's archive test)
   packs the same tree both ways and requires equal bytes, so a second writer is a
   failing gate rather than a review question.
 - **No third-party wasm.** Node's native `zstdCompressSync` and any wasm encoder
@@ -500,7 +503,7 @@ out from under a save.
 **Context.** The editor must validate authored content and playtest it. The runtime
 must validate loaded content. If those are two implementations, they disagree.
 
-**Decision.** The wasm core exposes `wsp_validate_content(bytes) -> report` and the
+**Decision.** The wasm core exposes `kobra_validate_content(bytes) -> report` and the
 editor calls it through the same ABI the game uses. Authored content is validated
 before it can be saved or published; runtime content is validated on load and a
 failing unit is disabled and reported, never partially applied.
@@ -550,7 +553,7 @@ JSON. *All powers as Rust* — no new powers from mods, contradicting the brief.
 > The reasoning about *why* one rendering backend beats two is still sound, and still why
 > the native runtime has exactly one.
 
-**Context.** The product-wide floor is Chrome/Edge 105 (FS §15.1). WebGPU is a
+**Context.** The product-wide floor was Chrome/Edge 105. WebGPU is a
 Chromium 113 feature: it is absent from Firefox on Linux and macOS Intel entirely,
 requires Safari 26 on macOS Tahoe, and only reached Chrome desktop Linux in 144. The
 first revision therefore carried a WebGL2 fallback.
@@ -568,7 +571,7 @@ both universal and stable.
 
 **Consequences.** One renderer, one shader language, compute and storage buffers
 available, and no compatibility carve-outs in the performance plan. The launcher
-already refuses to launch a browser below the configured minimum (FR-LNCH-6) and E1
+already refuses to launch a browser below the configured minimum, and E1
 explains the requirement in plain language, so an unsupported browser fails before the
 player sees a blank canvas. The cost is explicit and accepted: a Firefox-only or
 pre-Tahoe-Safari player cannot run the game. The launcher keeps a browser-preference
@@ -585,33 +588,33 @@ itself, which are the same engine.
 
 ## AD-18 — The engine owns an asset VFS with an overlay **map**, plus a bundle seam
 
-**Context.** `/assets/*` always serves the base game; mods are only reachable at
-`/mods/<id>/assets/*`; the manifest names every base asset and marks them all
+**Context.** The game's asset tree holds the base game, and a mod's tree holds that mod;
+the manifest names every base asset and marks them all
 `mutable`; the schema reserves `bundles` that the packager does not yet emit. The
 obvious implementation — try each enabled mod's path, then the base — costs one
-request per mod per asset, and FS §17.1 budgets **≤ 150 root requests at boot** (400
-as a failure threshold) with FR-AST-10 bundling explicitly unimplemented.
+request per mod per asset, and the boot budget was **≤ 150 root requests** (400
+as a failure threshold), with bundling explicitly unimplemented.
 
 **Decision.** All content access goes through one JS module, `vfs`, which builds an
 **overlay map** before the first asset request:
 
-1. fetch `assets/asset.manifest.json` (the base path set);
+1. fetch the asset manifest (the base path set);
 2. for each enabled mod (descending `priority`, ties by id ascending), fetch its
-   `/mods/<id>/assets/data/mod.json` index;
+   the mod's index index;
 3. merge its declared `overrides` and its packs' asset references into
    `map: path → winning mod id`;
 4. resolve any path with **exactly one** request: the winning mod's URL if mapped,
-   otherwise `/assets/<path>`.
+   otherwise a game asset path.
 
 Zero probing, no expected 404s, and a request count of `1 + N_mods + M_assets`.
 `vfs.manifest` wraps the asset manifest, whose hashes are used for change detection
-and reporting, never for refusal (FR-AST-4). The VFS API is bundle-oblivious: if the
+and reporting, never for refusal. The VFS API is bundle-oblivious: if the
 packager starts emitting bundles, only `vfs` gains a bundle reader.
 
 **Consequences.** Overlay resolution is one code path, testable, identical in game
 and editor, and it respects the platform's request budget. The cost is that a mod
 **must** declare the paths it provides in its index — which the editor writes
-automatically, and which the validator cross-checks against the mod's `assets/` tree
+automatically, and which the validator cross-checks against the mod's own tree
 so a forgotten declaration is caught at publish time rather than silently failing to
 override. `AD-9`'s conventional index therefore becomes load-bearing for
 performance, not just for discovery.
@@ -620,8 +623,8 @@ performance, not just for discovery.
 requests; with three mods and 150 assets that is 450 requests against a budget of
 150, and it degrades as players install more mods, which is precisely backwards.
 *Fetch the whole mod manifest to plan ahead* — unreachable (`AD-9`). *Ask the
-launcher to do overlay resolution* — `/assets/*` is a base route; changing that is an
-upstream change, and FR-AST-12 assigns resolution to the consumer.
+launcher to do overlay resolution* — the game's asset tree is a base route; changing that is an
+upstream change: resolution belongs to the consumer.
 
 ---
 
@@ -629,13 +632,13 @@ upstream change, and FR-AST-12 assigns resolution to the consumer.
 
 **Context.** CSP `connect-src 'self'` makes any outbound request from the page
 impossible, and the launcher's `internal/update` package is *"the only package
-allowed to make an outbound request"* (`docs/launcher-architecture.md` §6).
+allowed to make an outbound request"* (the launcher architecture note).
 
 **Decision.** Design as if offline. No analytics, no patch fetches from the page, no
 font/CDN, nothing. "Check for updates" in the UI calls the launcher's
-`/api/update/check` and reflects the answer; applying an update records intent and
+an update check and reflects the answer; applying an update records intent and
 happens on the next launch. All external content (fonts, icons, audio) is vendored
-into `assets/`.
+into the game's assets.
 
 **Consequences.** No CSP loosening is ever needed; the game works from a USB stick
 on an air-gapped machine; the mod threat model stays bounded. Cost: any future
@@ -643,29 +646,29 @@ online feature is a launcher-level product change, not a game feature — which 
 correct place for that decision to be made.
 
 **Rejected.** *Widen CSP for a CDN or a patch service* — contradicts the platform's
-whole reason for existing, and FR-SRV-17 is not ours to relax.
+whole reason for existing, and that policy is not ours to relax.
 
 ---
 
 ## AD-20 — Source layout separates the engine, the web app, and the package
 
-**Context.** The launcher serves `game/`; the packager reads `pkg.toml` and copies
-`game/`; build outputs (wasm, bundled JS) must land under `game/engine/`. A game in
-`games/<name>/` sits one level deeper than `testgame/`, so toolchain paths shift
+**Context.** The launcher serves the game folder; the packager reads the packaging input and copies
+the game folder; build outputs (wasm, bundled JS) must land under the engine module. A game in
+`games/<name>/` sits one level deeper than the fixture game, so toolchain paths shift
 (AGENTS.md).
 
 **Decision.** Sources live outside the served tree and are built into it:
-`crates/kobra-core/` (Rust), `src/web/` (TS: `shell/`, `worker/`, `renderer/`, `editor/`,
-`shared/`), `content/` (authored JSON/CSV sources, including `rules/`), `game/` (the
+`crates/kobra-core/` (Rust), the browser runtime (`shell/`, `worker/`, `renderer/`, the editor's tree,
+`shared/`), `content/` (authored JSON/CSV sources, including `rules/`), the game folder (the
 shipped package, generated into, checked in for the parts that are authored),
-`tools/` (build/validate/pack helpers), `tests/`, `architecture/`, `specs/`.
+the tools directory (build/validate/pack helpers), `tests/`, `architecture/`, `specs/`.
 
-**Consequences.** Nothing generated is edited by hand; `make` reproduces `game/`
+**Consequences.** Nothing generated is edited by hand; `make` reproduces the game folder
 from source; a clean checkout + build yields a packageable folder. The rule
-"`game/` root is exactly `index.html` + `shell.js`" is enforced by a build-time
+"the game folder root is exactly the boot document + the shell" is enforced by a build-time
 check before the packager ever sees it.
 
-**Rejected.** *Author directly in `game/`* — blurs generated and authored files and
+**Rejected.** *Author directly in the game folder* — blurs generated and authored files and
 makes the wasm/JS build a hand-copy step. *A single `src/` tree with no separation* —
 loses the invariant that the served tree is a build output.
 
@@ -689,15 +692,15 @@ every CI run.
 
 ---
 
-## AD-22 — Game strings live under `assets/` so mods can translate
+## AD-22 — Game strings live under the game's assets so mods can translate
 
-**Context.** The launcher serves `/locales/*` from `game/locales/`, but the mod
-overlay only maps `assets/`, so a translation shipped as a mod **cannot** shadow
-`game/locales/**`. `launcher.config.json`'s `locales` list is launcher-level.
+**Context.** The launcher serves the string tables from the shell's string table, but the mod
+overlay only maps the game's assets, so a translation shipped as a mod **cannot** shadow
+the shell's strings. the launcher configuration's `locales` list is launcher-level.
 
-**Decision.** The shell's own minimal strings stay in `game/locales/`, which mods
-cannot touch. All *game content* strings live in `game/assets/locales/<lang>.json`
-(or per-pack string tables under `assets/`), so a translation mod is an ordinary
+**Decision.** The shell's own minimal strings stay in the shell's string table, which mods
+cannot touch. All *game content* strings live in the game's string tables
+(or per-pack string tables under the game's assets), so a translation mod is an ordinary
 asset override. String ids are stable, namespaced, and referenced by content — never
 by their English text.
 
@@ -716,20 +719,20 @@ impossible, which is one of the cheapest long-term life extensions available.
 
 **Context.** Two launcher behaviours blocked the editor from being a first-class
 document rather than a mode of the game page: the static handler served only
-`/`, `/index.html`, `/shell.js`, `/engine/*`, `/assets/*` and `/locales/*`, so an
-editor at `/editor` was unreachable; and the launcher always opened `/index.html`, so
+`/`, the boot document, the shell, the engine modules, the game's asset tree and the string tables, so an
+editor at `/editor` was unreachable; and the launcher always opened the boot document, so
 the editor could only ever be entered *through* the game. The packaging allowlist had
-the same gap (`servablePrefixes` omitted `editor/`).
+the same gap (`servablePrefixes` omitted the editor's tree).
 
 **Decision.** Both fixed in the launcher, minimally:
 
-- The static handler serves **`/editor` and `/editor/*`** from `game/editor/`, with
-  `/editor` resolving to `editor/index.html`, the same confinement and symlink
+- The static handler serves the editor's tree at its own route, with
+  `/editor` resolving to the editor document, the same confinement and symlink
   re-checking as the other roots, and a clean **404 when the game ships no editor**
-  (FR-AST-16). `editor/` is added to the packaging allowlist so a shipped editor is
+  The editor's tree is added to the packaging allowlist so a shipped editor is
   indexed rather than packaged-and-404'd.
-- **`server.entry_path`** (`/`, `/index.html`, `/editor`) names the document the
-  launcher opens and `--print-url` prints (FR-LNCH-9). An unknown value is rejected at
+- **`server.entry_path`** (`/`, the boot document, `/editor`) names the document the
+  launcher opens and `--print-url` prints. An unknown value is rejected at
   config load, so a typo cannot silently launch the wrong thing.
 
 **Consequences.** The editor becomes a real second entry point in the same origin: it
@@ -738,11 +741,11 @@ non-HttpOnly `kobra_csrf` cookie, and needs no new token machinery and no new AP
 surface. A publisher can ship a modder's build whose launcher opens straight into the
 editor. The route costs nothing to games that ship no editor.
 
-**Rejected.** *Keep the editor as a mode of `index.html` only* — the first revision's
+**Rejected.** *Keep the editor as a mode of the boot document only* — the first revision's
 design, forced by the route list; it works, but it makes the editor unreachable to a
 player who has not booted the game, and it forces the whole game module graph to be
-the editor's entry. *A second bootstrap token minted through a new `POST /__kobra/open`
-endpoint* — real added surface (a cross-package call into the browser launcher) for
+the editor's entry. *A second bootstrap token minted through a new open route* — real added
+surface for
 something the existing cookies already provide. Recorded as a possible later addition,
 not built.
 
@@ -767,7 +770,7 @@ Three rules make it enforceable rather than aspirational:
 
 1. Every budget has a target and a fail threshold, and a miss is a defect.
 2. No optimization claim is accepted without naming the counter it improves.
-3. Machine-dependent budgets run on the reference environment (FS §17.4) and are
+3. Machine-dependent budgets run on the reference environment and are
    re-measured each release, with the native ratio recorded so drift is visible.
 
 **Consequences.** The engine's structure follows the bar rather than the reverse:
@@ -790,7 +793,7 @@ benchmark scene is real content with real mods loaded.
 included boot-to-interactive, WASM compile time, root request count and asset-load
 throughput — all of which are really *content-volume and packaging* problems, and all
 of which would have shaped v1's structure if taken as first-class constraints. In
-particular, the FS §17.1 request budget (≤ 150 root requests) was pushing the content
+particular, the boot request budget (≤ 150 root requests) was pushing the content
 model toward a custom binary pak before a single line of content existed.
 
 **Decision.** **Boot and load time are the lowest priority and are not gated.** The
@@ -989,7 +992,7 @@ is naturally strong.
 runs inside the parallel-systems rules (`07:07.4`) — visibility and cover are map-only
 passes over a frozen tick state, which makes them ideal parallel work and a determinism
 risk only if a reduction is unordered. Elevation must be evaluated from *state*, never
-from the renderer, and the editor's `wsp_preview` must fold it into the odds it shows, or
+from the renderer, and the editor's `kobra_preview` must fold it into the odds it shows, or
 the editor will disagree with the game (`AD-15`).
 
 **Consequences.** The world model gains a heightfield: authored per sector, part of the
@@ -1081,7 +1084,7 @@ nominal — each one exists because the obvious implementation breaks something:
    mesh, and would put floats in the simulation.
 4. **Picking is resolved to discrete targets before it reaches the sim.** A pointer event
    travels main → render worker (which unprojects it using the camera and the actual
-   geometry) → `wsp_pick(ray)` → and the sim returns an **entity id or sector**, never a
+   geometry) → `kobra_pick(ray)` → and the sim returns an **entity id or sector**, never a
    float coordinate. Floats decide *what you clicked*; they never enter a rule.
 5. **Billboards remain a first-class draw kind.** Not for characters any more, but for
    foliage, particles, decals, impostors and LOD proxies — and because a mod that ships
@@ -1175,7 +1178,7 @@ the tooling ends up with two sources of truth.
 2. **Blender is the level-geometry editor.** 3D spatial layout — where buildings, rooms,
    props and terrain sit — is authored in Blender through a project addon. Spatial work is
    what Blender is good at, and the edit loop needs no new machinery: save in Blender, the
-   dev build's asset watcher reloads it (`FR-AST-14`, dev only), playtest in the game.
+   dev build's asset watcher reloads it (dev only), playtest in the game.
    Blender is the modelling surface; the game is the playtest surface.
 3. **Blender is the headless asset compiler.** `blender -b -P tools/blender/exporter.py`
    runs in the build and in CI to **normalise** a delivery (scale, axis, naming, rest pose)
@@ -1288,7 +1291,7 @@ world, the roster and the open conversation and decide for itself which buttons 
 It is also a second rules engine, in a second language, that will disagree with the first
 the moment either changes (`AD-15`).
 
-**Decision.** The core answers, through `wsp_actions` (`02:02.13`): every contextual action
+**Decision.** The core answers, through `kobra_actions` (`02:02.13`): every contextual action
 with `enabled`, a `reason_key`, and whatever target the action needs. The shell renders
 that answer and posts the command the action names. A disabled action is shown disabled
 with the engine's reason rather than removed (`02:02.11` rule 2). Two capabilities the
@@ -1314,14 +1317,14 @@ the shell polls* — a projection is enough; a command implies state.
 
 **Context.** The play page needs a development mode: diagnostics, the log, the topology and
 feature probes. The obvious gate is a build-time flag in the shell. It does not work here:
-`make play` and `make package` assemble the **same** `game/` tree, and `make play` merely
+`make play` and `make package` assemble the **same** the game folder tree, and `make play` merely
 serves it with a `kobra_dev` launcher, so the folder and its shell are byte-identical in a
 development run and in a packaged one. A flag baked into the shell would either mark both or
 neither. Worse, a URL parameter or a key chord the page checks for itself is a gate the
 player can open.
 
-**Decision.** The launcher reports it. A `kobra_dev` build sets `dev: true` in
-`GET /__kobra/diagnostics` (`Launcher-spec.md` §21.4); the field is omitted when false, and
+**Decision.** The launcher reported it: a `kobra_dev` build set `dev: true` in the
+diagnostics payload; the field was omitted when false, and
 a release binary has no code path that can set it. The shell offers its Dev sidebar from that
 field alone. The sidebar holds diagnostics and the log — no dev-only commands — so the
 surface a mis-gate would expose is telemetry rather than the ability to rewrite state.
@@ -1373,7 +1376,7 @@ Three properties make it safe enough to ship:
    presentation (`AD-29`): `presentation_hash`, never `rules_hash`.
 
 **Consequences.** The projection shapes become a **public API** the moment packs ship, so
-they are versioned (`worldspiracy.projection/<name>/1`, `worldspiracy.ui/v1`) and covered by
+they are versioned (`kobra.projection/<name>/1`, `kobra.ui/v1`) and covered by
 tests on both sides of the ABI. Adding a projection is a read-model change with a schema and
 a test, never a rule change. The engine must not grow UI-shaped commands ("sort inventory",
 "mark read") or UI state, because both would put presentation into the replay log. The mod
@@ -1399,7 +1402,7 @@ expression language: `text="{fortune - cost}"`, `when="standing('watch') >= 10"`
 the most expensive answer available, for two independent reasons.
 
 First, the platform forbids it. The launcher's CSP is `script-src 'self'
-'wasm-unsafe-eval'` (`FR-SRV-17`): no `'unsafe-inline'`, no `'unsafe-eval'`, and
+'wasm-unsafe-eval'`: no `'unsafe-inline'`, no `'unsafe-eval'`, and
 `'wasm-unsafe-eval'` permits WebAssembly compilation only. Any declaration whose expressions
 are JavaScript is blocked — which is why HTMX's `hx-on:`, Alpine's default build and Vue's
 runtime compiler cannot run here. Alpine's *CSP build* is the proof that interpretation works
@@ -1419,7 +1422,7 @@ Second, even interpreted, a condition in the UI would be a second implementation
   the engine evaluates them, and layout tests a boolean (`when-signal`).
 
 Interaction is a **verb** bound to the action set: an engine verb carries `enabled`,
-`label_key` and `reason_key` from `wsp_actions`; a navigation verb (`open`, `toggle`) decides
+`label_key` and `reason_key` from `kobra_actions`; a navigation verb (`open`, `toggle`) decides
 nothing and needs no engine answer. Anything beyond paths, signals, verbs and iteration is a
 **renderer** (`09.6`) — real JavaScript with a capability object, where it can be typed,
 tested and reviewed.
@@ -1438,7 +1441,7 @@ reporting, owned forever, in exchange for letting game logic into markup where i
 tested like a renderer. *Evaluate conditions in the shell* — a second evaluator of `02:02.7`,
 drifting from the quest and dialogue systems it must agree with. *Compile templates at build
 time* — the right answer for the **base** UI's ergonomics, but it requires a toolchain, and
-the casual modding case is a folder dropped into `data/mods/`; it stays available as an
+the casual modding case is a folder dropped into the mods directory; it stays available as an
 authoring aid that emits the same registry entries, never as a runtime dependency.
 *Borrow HTMX's attributes wholesale* — its surviving attributes are HTTP-and-fragment
 oriented and its evaluated ones are CSP-blocked, so what fits is the philosophy (locality of
@@ -1470,7 +1473,7 @@ Metal stay reachable if Windows or macOS are built later) and `winit` (Wayland a
 The RenderPacket stops being a *transport*: there is no second worker, no
 `SharedArrayBuffer` and no ring, so a frame is a plain description produced by a call and
 consumed in the same process. It keeps its integer-only encoding and its `state_hash`,
-because those are determinism tools rather than transport. The web build — `src/web`, the
+because those are determinism tools rather than transport. The web build — the browser runtime, the
 DOM interface, the browser host, the wasm toolchain and the launcher's serving path — is
 **retired, and the pivot's first change removes it from the tree** (git history holds it, and
 version control remembers better than a directory nobody dares delete). It was the working
@@ -1601,7 +1604,7 @@ native library that increases engine capability.
 
 The native tier's contract is deliberately small:
 
-1. **One exported symbol.** `wsp_plugin_query(u32 abi_version) -> *const WspPluginV1`,
+1. **One exported symbol.** `kobra_plugin_query(u32 abi_version) -> *const WspPluginV1`,
    returning a size-versioned, append-only struct of function pointers — the loader
    pattern, so a plugin compiled against version *n* runs on *n+1* when the struct only
    grew. The boundary is **C**: Rust has no stable ABI, so no Rust type crosses it. The

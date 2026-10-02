@@ -1,6 +1,6 @@
 # 02 — The 4C rules engine and simulation core
 
-This document specifies what `game.wasm` computes and how the 4C System
+This document specifies what the engine core computes and how the 4C System
 (`specs/4c_system.md`) becomes a deterministic simulation. It assumes `AD-1`
 (WASM is the authoritative core), `AD-6` (integer-only, one seeded RNG) and
 `AD-15` (one validator).
@@ -697,7 +697,7 @@ make the set safe to edit:
 
 ```json
 {
-  "schema": "worldspiracy.rules/1",
+  "schema": "kobra.rules/1",
   "granularity": { "tile_mm": 1000, "legacy_sector_tiles": 3 },
 
   "legacy": {
@@ -736,7 +736,7 @@ those. `per_distance.rush_bonus` and `range_penalty`, `legacy.climb_sectors`,
 the optional range penalty, thrown reach (which lives on the item record instead),
 power reach, falling and climbing arrive with the rules that read them (M2/M3). A
 key that configures nothing is deleted rather than documented (`CONTRIBUTING.md`
-rule 3), and re-adding one is a record plus the rule that consumes it. The editor shows the *effective* numbers read-only and `wsp_preview` resolves against
+rule 3), and re-adding one is a record plus the rule that consumes it. The editor shows the *effective* numbers read-only and `kobra_preview` resolves against
 the same table, so the editor cannot disagree with the game (`§02.10`).
 
 The whole block is rules-bearing: it sits inside `rules_hash`, and a mismatch is a hard,
@@ -892,15 +892,15 @@ knowing the rules:
 
 | Call | Purpose |
 |---|---|
-| `wsp_new_campaign(config_json) -> sim` | Build a world from a seed + content |
-| `wsp_character_create(mode, budget, seed) -> character` | Rolled / budgeted / authored |
-| `wsp_command(sim, command_json) -> events_json` | The one mutation entry point |
-| `wsp_tick(sim, elapsed) -> events_json` | Advance the clock |
-| `wsp_preview(sim, action) -> prediction` | The UI's "what would happen if" (used heavily by the editor) |
-| `wsp_validate_content(bytes) -> report` | Shared with the editor and the runtime |
-| `wsp_save(sim) / wsp_load(bytes)` | Envelope in, envelope out |
+| `kobra_new_campaign(config_json) -> sim` | Build a world from a seed + content |
+| `kobra_character_create(mode, budget, seed) -> character` | Rolled / budgeted / authored |
+| `kobra_command(sim, command_json) -> events_json` | The one mutation entry point |
+| `kobra_tick(sim, elapsed) -> events_json` | Advance the clock |
+| `kobra_preview(sim, action) -> prediction` | The UI's "what would happen if" (used heavily by the editor) |
+| `kobra_validate_content(bytes) -> report` | Shared with the editor and the runtime |
+| `kobra_save(sim) / kobra_load(bytes)` | Envelope in, envelope out |
 
-`wsp_preview` deserves a note: it is the same resolution path run against a
+`kobra_preview` deserves a note: it is the same resolution path run against a
 hypothetical action without committing it, and it is why the "one primitive"
 design in §02.2 pays off. The UI can show exact odds and the editor can show a
 playtest consequence, and neither can disagree with the real resolution.
@@ -1059,7 +1059,7 @@ it. A campaign may also add `rush`, and **rushing** already gains `+1` row step 
 charge is strong through the existing rule rather than through a new one.
 
 This is deliberately the same shape as every other modifier in the game: it shifts the
-band index, the existing table resolves, and `wsp_preview` can show *"+2 RS, high ground"*
+band index, the existing table resolves, and `kobra_preview` can show *"+2 RS, high ground"*
 as the reason (`02:02.10`). No new resolution path exists, so the editor cannot disagree
 with the game.
 
@@ -1142,7 +1142,7 @@ invariants protect the mechanics from that freedom, and both are normative:
 A CRPG's interface is a promise about the rules. A control that is offered and then refused
 teaches the player to distrust the interface; a control that is silently missing teaches them
 nothing. So **which actions exist right now is engine state**, not a UI guess — the argument
-of `AD-15` applied to the interface. The core answers with a projection (`wsp_actions`), and
+of `AD-15` applied to the interface. The core answers with a projection (`kobra_actions`), and
 every page renders that answer rather than deriving it.
 
 ### The projection
@@ -1189,7 +1189,7 @@ reported when nothing structural is in the way.
 ### Merchants are people, so shops are places
 
 A `shop` record with no station is a counter nobody keeps. A station gains `shop: <shop id>`,
-and the trade surface is offered only beside it; `wsp_shops` reports only the counters in
+and the trade surface is offered only beside it; `kobra_shops` reports only the counters in
 reach. The merchant is a person standing in the world, which is what makes a shop's prices a
 function of the buyer's Lifestyle (`4c:1255-1272`) *at a place*, and what lets a mod move or
 remove a merchant by editing the world record. A station with an empty faction never joins a
@@ -1232,7 +1232,7 @@ afford anything — an empty panel behind an enabled action is worse than a refu
   to this section and to the projection; the interface gains a button and a string id, and no
   page re-derives a predicate. That is what keeps the play page and the editor's scratch-sim
   from disagreeing (`AD-15`).
-- **The refusal and the offer agree.** `wsp_actions` reports available if and only if the
+- **The refusal and the offer agree.** `kobra_actions` reports available if and only if the
   corresponding command would be accepted, because both read the same state; a divergence is
   the bug `02:02.11` warns about.
 - **Every rule above has a test named for it** (`05:05.4`), because a projection that is

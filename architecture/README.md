@@ -13,12 +13,14 @@ pivot supersedes**, and each affected document carries a pointer at its head. A
 document marked *superseded* is kept for its design intent, not as a description of
 what runs.
 
-**Paths inside these documents are not all current.** The engine's own paths are
-relative to this repository's root (`crates/kobra-core/`, `specs/`, `tools/`). A
-*game's* files — its content, its golden replays, its mod fixtures — belong to that
-game's repository, checked out beside this one. The retired web-toolchain paths
-(`game/`, `pkg.toml`, `launcher/`, `src/web`, `docs/`) are historical and each
-document that mentions them says so at its head.
+**Paths in these documents are the engine's**, relative to this repository's root
+(`crates/kobra-core/`, `specs/`, `tools/`, `architecture/`). A *game's* files — its
+content, its golden replays, its mod fixtures — belong to that game's repository,
+checked out beside this one.
+
+`01`, `04` and `05` are **stubs**: they described the browser runtime and the web
+toolchain that `AD-38`–`AD-42` removed, and they keep only the section anchors that
+code and specifications cite, each mapped to the decision or file that replaced it.
 
 **Scope:** the engine — the 4C rules core, the content model, the modding surface,
 the runtime architecture, and the delivery path.
@@ -28,13 +30,13 @@ the runtime architecture, and the delivery path.
 
 | Doc | Answers | State |
 |---|---|---|
-| [01-runtime-and-language-split.md](01-runtime-and-language-split.md) | What goes in the engine core, what the host owns, how they talk, and how the thing boots. | Superseded by `AD-38`; kept for the split's intent |
+| [01-runtime-and-language-split.md](01-runtime-and-language-split.md) | *Stub.* It described the browser runtime's artifact split. | Retired by `AD-38`; keeps its section anchors, each mapped to what replaced it |
 | [02-rules-engine.md](02-rules-engine.md) | How the 4C System becomes a deterministic simulation: the Master Table, Rank Values and Row Steps, traits, powers, combat, time, the content data model. | **Normative** |
 | [03-content-and-mods.md](03-content-and-mods.md) | The content pipeline, the asset overlay, how mods override and extend content, the modding tiers, what a mod may not do. | §03.7's tiers superseded by `AD-39`/`AD-40` |
-| [04-editor.md](04-editor.md) | The shipped editor: projects, validation, playtest, publish. | Superseded by `AD-42`; authoring is headless-first |
-| [05-delivery-and-roadmap.md](05-delivery-and-roadmap.md) | Repository layout, build pipeline, packaging, gates, milestones, risks. | §05.1–§05.4 superseded by `AD-38`/`AD-42`; §05.5 is the first game's history |
+| [04-editor.md](04-editor.md) | *Stub.* It described the editor as a document served by the launcher. | Retired by `AD-42`; authoring is headless-first |
+| [05-delivery-and-roadmap.md](05-delivery-and-roadmap.md) | *Stub.* It described the web toolchain's build, packaging and gates, and the first game's milestones. | Retired by `AD-38`/`AD-42`; the milestones are that game's `CHANGELOG.md` |
 | [06-decisions.md](06-decisions.md) | The decision log (AD-1…AD-42), with the supersession index. | **Normative** |
-| [07-performance.md](07-performance.md) | The runtime acceptance bar, concurrency and memory architecture, the parallelism rules that preserve determinism. | Budgets stand; browser rows superseded by `AD-38` |
+| [07-performance.md](07-performance.md) | The runtime acceptance bar, the memory and GPU rules, and the parallelism rules that preserve determinism. | **Normative**; its browser sections are marked retired |
 | [08-asset-pipeline.md](08-asset-pipeline.md) | **The art contract:** units and scale, the shared rig, gameplay anchors, mesh/material/texture/animation budgets, the import validator, the pinned Blender pipeline. | **Normative** |
 | [09-moddable-ui.md](09-moddable-ui.md) | The interface contract: projections with subscription and revisions, engine-computed signals, the layout vocabulary, the renderer capability object. | Contract stands; the DOM implementation is re-derived (`AD-42`) |
 
